@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           },
           {
-            text: `Analyze this image. If it's a recipe, extract the title, description (brief), ingredients, and method steps. Estimate the effort level and main protein. ${thermomixInstruction}`
+            text: `Analyze this image. If it's a recipe, extract the title (Ensure Title Case, do NOT use ALL CAPS), description (brief), ingredients, and method steps. Estimate the effort level and main protein. ${thermomixInstruction}`
           }
         ]
       },
@@ -70,6 +70,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const data = JSON.parse(response.text || '{}');
+    
+    // Safety check: Fix ALL CAPS titles if AI misses the instruction
+    if (data.title && data.title === data.title.toUpperCase() && /[a-zA-Z]/.test(data.title)) {
+        data.title = data.title.replace(
+            /\w\S*/g,
+            (txt: string) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+        );
+    }
+
     res.json(data);
   } catch (error: any) {
     console.error("AI Image Parse Error:", error);

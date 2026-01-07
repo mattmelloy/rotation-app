@@ -38,6 +38,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
 
   // AI Edit State
   const [aiInstruction, setAiInstruction] = useState('');
+  const [magicDescription, setMagicDescription] = useState('');
   
   // Source State
   const [sourceType, setSourceType] = useState<SourceType>('manual');
@@ -89,6 +90,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
     setLoading(false);
     setUseThermomix(false);
     setAiInstruction('');
+    setMagicDescription('');
   };
 
   const handleClose = () => {
@@ -228,7 +230,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
     setLoading(true);
     setLoadingMessage('AI is writing your robot-friendly recipe...');
     try {
-        const aiData = await generateRecipeFromText(title, false, useThermomix);
+        const aiData = await generateRecipeFromText(title, false, useThermomix, magicDescription);
         populateFromAI(aiData);
         onShowToast("Recipe created!", 'success');
     } catch (err) {
@@ -406,20 +408,26 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
                             <ChefHat size={18} />
                             <span>Generate from Title</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="space-y-3">
                             <input 
                                 type="text" 
                                 placeholder="e.g. Grandma's Apple Pie" 
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                            <textarea 
+                                placeholder="Optional details (e.g. gluten free, extra spicy, serves 4...)"
+                                value={magicDescription}
+                                onChange={(e) => setMagicDescription(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm h-20 resize-none"
                             />
                             <button 
                                 onClick={handleGenerateFromTitle}
                                 disabled={!title}
-                                className="bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50"
+                                className="w-full bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50"
                             >
-                                Create
+                                Create Recipe
                             </button>
                         </div>
                      </div>

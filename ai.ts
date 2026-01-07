@@ -34,14 +34,14 @@ export async function parseRecipeFromImage(base64Image: string, includeThermomix
   }
 }
 
-export async function generateRecipeFromText(text: string, isUrl: boolean = false, includeThermomix: boolean = false): Promise<Partial<Meal>> {
+export async function generateRecipeFromText(text: string, isUrl: boolean = false, includeThermomix: boolean = false, additionalDetails: string = ''): Promise<Partial<Meal>> {
   try {
     const response = await fetch(`${API_URL}/api/ai/generate-recipe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text, isUrl, includeThermomix })
+      body: JSON.stringify({ text, isUrl, includeThermomix, additionalDetails })
     });
 
     if (!response.ok) {

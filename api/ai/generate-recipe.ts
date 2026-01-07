@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { text, isUrl = false, includeThermomix = false } = req.body;
+    const { text, isUrl = false, includeThermomix = false, additionalDetails = '' } = req.body;
     
     if (!text) {
       return res.status(400).json({ error: 'text is required' });
@@ -49,8 +49,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : "Do not include a thermomixMethod.";
 
     const prompt = isUrl 
-      ? `Find or generate a recipe for this URL/Title: ${text}. Extract title, description, ingredients, and method. ${thermomixInstruction}`
-      : `Extract recipe details from this text: ${text}. ${thermomixInstruction}`;
+      ? `Find or generate a recipe for this URL/Title: ${text}. ${additionalDetails ? `Additional User Instructions: ${additionalDetails}.` : ''} Extract title, description, ingredients, and method. ${thermomixInstruction}`
+      : `Extract recipe details from this text: ${text}. ${additionalDetails ? `Additional User Instructions: ${additionalDetails}.` : ''} ${thermomixInstruction}`;
 
     const config: any = {
       responseMimeType: "application/json",
