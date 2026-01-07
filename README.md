@@ -1,20 +1,80 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# The Rotation 🍽️
 
-# Run and deploy your AI Studio app
+A smart meal planning application that helps you organize your weekly meals, generate recipes with AI, and sync across devices.
 
-This contains everything you need to run your app locally.
+![The Rotation](public/favicon.svg)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1JN95lCvcF2SVtdnsCecFdZgIF2b1dYOi
+## ✨ Features
 
-## Run Locally
+- **📅 Weekly Meal Planning**: Drag and drop meals into your weekly schedule.
+- **🤖 AI Recipe Generation**:
+  - **Magic Import**: Paste any recipe URL to import it instantly.
+  - **Photo Scan**: Take a photo of a cookbook page to digitize recipes.
+  - **Thermomix Conversion**: AI automatically converts standard recipes into Thermomix/kitchen robot steps.
+  - **AI Chef**: Generate recipes just from a title (e.g., "Grandma's Apple Pie").
+- **☁️ Cloud Sync**: Sync your meal plan and recipes across all devices using Supabase.
+- **🛒 Smart Shopping List**: Automatically generate shopping lists from your weekly meal plan.
+- **🔄 Rotation Tiers**: Organize meals by frequency (Heavy Hitters, The Bench, The Archive).
 
-**Prerequisites:**  Node.js
+## 🛠️ Tech Stack
 
+- **Frontend**: React, Vite, TypeScript, Tailwind CSS
+- **Backend**: Vercel Serverless Functions (Node.js)
+- **AI**: Google Gemini API
+- **Database**: Supabase (PostgreSQL)
+- **Deployment**: Vercel
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v18+)
+- A Supabase account
+- A Google Cloud account (for Gemini API)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/mattmelloy/rotation-app.git
+   cd rotation-app
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up Environment Variables**
+   Create a `.env` file in the root directory:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_key
+   GEMINI_API_KEY=your_gemini_api_key
+   ```
+
+4. **Run Locally**
+   ```bash
+   npm run dev:all
+   ```
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:3001
+
+## 📦 Deployment
+
+This app is optimized for deployment on **Vercel**.
+
+1. Push your code to GitHub.
+2. Import the repository in Vercel.
+3. Add your environment variables in the Vercel dashboard.
+4. Deploy! 🚀
+
+See `VERCEL_DEPLOYMENT.md` for a detailed guide.
+
+## 🗄️ Database Setup
+
+Run the SQL commands found in `supabase_schema.sql` in your Supabase SQL Editor to set up the necessary tables and security policies.
+
+## 📄 License
+
+MIT License
