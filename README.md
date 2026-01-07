@@ -4,7 +4,7 @@ A smart meal planning application that helps you organize your weekly meals, gen
 
 ![The Rotation](public/favicon.svg)
 
-## ✨ Features
+## ✨ Features 
 
 - **📅 Weekly Meal Planning**: Drag and drop meals into your weekly schedule.
 - **🤖 AI Recipe Generation**:
