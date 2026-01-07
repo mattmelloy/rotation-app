@@ -1,0 +1,450 @@
+import React, { useState } from 'react';
+import { Plus, Users, Search, X, LogOut, Trash2, UserCircle, Database, ChevronRight, Loader2 } from 'lucide-react';
+import { Meal, ViewMode } from './types';
+import { getTier } from './utils';
+import { supabase } from './lib/supabase';
+
+// Hooks
+import { useMeals } from './hooks/useMeals';
+import { useCloudSync } from './hooks/useCloudSync';
+
+// Components
+import WeekTray from './components/WeekTray';
+import MealCard from './components/MealCard';
+import AddMealModal from './components/AddMealModal';
+import MealDetailsModal from './components/MealDetailsModal';
+import ShopList from './components/ShopList';
+import FamilyVoting from './components/FamilyVoting';
+import Toast, { ToastType } from './components/Toast';
+import AuthModal from './components/AuthModal';
+
+function App() {
+  // --- UI State ---
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [viewingMeal, setViewingMeal] = useState<Meal | null>(null);
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
+  const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
+
+  const showToast = (msg: string, type: ToastType = 'success') => {
+    setToast({ msg, type });
+  };
+
+  // --- Business Logic Hooks ---
+  const {
+      meals, setMeals,
+      weekSlots, setWeekSlots,
+      shopChecked, setShopChecked,
+      safeSetItem,
+      handleAddToTray,
+      handleRemoveFromTray,
+      handleSaveMeal,
+      handleDeleteMeal,
+      handleClearWeek,
+      handleRemoveDefaults,
+      handleShopToggle
+  } = useMeals(showToast);
+
+  const {
+      user, setUser,
+      isAuthModalOpen, setIsAuthModalOpen,
+      isLoading
+  } = useCloudSync(
+      meals, 
+      weekSlots, 
+      shopChecked, 
+      setMeals, 
+      setWeekSlots, 
+      setShopChecked, 
+      showToast, 
+      safeSetItem
+  );
+
+  // --- Handlers that rely on UI state or specific flows ---
+
+  const onSaveMealWrapper = (meal: Meal) => {
+      handleSaveMeal(meal, editingMeal, setEditingMeal);
+  };
+
+  const handleLogout = async () => {
+      await supabase?.auth.signOut();
+      setUser(null);
+      showToast("Logged out successfully");
+      setIsUserMenuOpen(false);
+  };
+
+  const openAddModal = () => {
+    setEditingMeal(null);
+    setIsAddModalOpen(true);
+  };
+
+  const openEditModal = (meal: Meal) => {
+    setViewingMeal(null); // Close details
+    setEditingMeal(meal);
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setEditingMeal(null);
+  };
+
+  const handleVotingComplete = (selectedMeals: Meal[]) => {
+    // 1. Increment votes for the selected meals
+    const updatedMeals = meals.map(meal => {
+        if (selectedMeals.some(s => s.id === meal.id)) {
+            return { ...meal, votes: (meal.votes || 0) + 1 };
+        }
+        return meal;
+    });
+    setMeals(updatedMeals);
+
+    // 2. Add them to the tray
+    let currentSlots = [...weekSlots];
+    let selectedIndex = 0;
+
+    // Fill available slots
+    for (let i = 0; i < currentSlots.length; i++) {
+        if (currentSlots[i].mealId === null && selectedIndex < selectedMeals.length) {
+            currentSlots[i].mealId = selectedMeals[selectedIndex].id;
+            selectedIndex++;
+        }
+    }
+    setWeekSlots(currentSlots);
+    setViewMode('dashboard');
+    showToast(`Added ${selectedMeals.length} family favorites!`);
+  };
+
+  // --- Derived State (Tiers & Search) ---
+  
+  // Sort helper: Most votes first
+  const sortByVotes = (a: Meal, b: Meal) => (b.votes || 0) - (a.votes || 0);
+
+  const highTier = meals.filter(m => getTier(m.lastCooked) === 'high').sort(sortByVotes);
+  const mediumTier = meals.filter(m => getTier(m.lastCooked) === 'medium').sort(sortByVotes);
+  const lowTier = meals.filter(m => getTier(m.lastCooked) === 'low').sort(sortByVotes);
+
+  const filteredMeals = searchQuery 
+    ? meals.filter(meal => {
+        const q = searchQuery.toLowerCase();
+        return (
+            meal.title.toLowerCase().includes(q) ||
+            meal.protein.toLowerCase().includes(q) ||
+            meal.tags?.some(tag => tag.toLowerCase().includes(q)) ||
+            meal.ingredients?.some(ing => ing.toLowerCase().includes(q)) ||
+            meal.keywords?.some(kw => kw.toLowerCase().includes(q))
+        );
+      }).sort(sortByVotes)
+    : [];
+
+  // --- Render ---
+
+  // --- Loading & Splash Screen ---
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-brand-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user && !isGuest) {
+     return (
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-700">
+           <div className="w-24 h-24 bg-brand-100 rounded-3xl flex items-center justify-center mb-8 rotate-3 shadow-xl">
+               <span className="text-5xl">🍳</span>
+           </div>
+           <h1 className="text-4xl font-extrabold text-gray-900 mb-2">The Rotation</h1>
+           <p className="text-gray-500 text-lg mb-10 max-w-sm">Simplify your family meals. Plan, shop, and cook with ease.</p>
+           
+           <div className="w-full max-w-xs space-y-4">
+               <button 
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="w-full bg-brand-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-brand-700 shadow-lg shadow-brand-200 transition-all hover:scale-105 active:scale-95"
+               >
+                  Get Started
+               </button>
+               <button 
+                  onClick={() => setIsGuest(true)}
+                  className="w-full bg-white text-gray-600 py-3.5 rounded-xl font-bold text-lg border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all"
+               >
+                  Continue as Guest
+               </button>
+           </div>
+           
+           <AuthModal 
+               isOpen={isAuthModalOpen}
+               onClose={() => setIsAuthModalOpen(false)}
+               onShowToast={showToast}
+           />
+        </div>
+     );
+  }
+
+  if (viewMode === 'voting') {
+    return (
+        <FamilyVoting 
+            meals={meals} 
+            onVoteComplete={handleVotingComplete} 
+            onCancel={() => setViewMode('dashboard')}
+        />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24 text-slate-800 font-sans relative">
+      
+      {toast && (
+        <Toast 
+            message={toast.msg} 
+            type={toast.type} 
+            onClose={() => setToast(null)} 
+        />
+      )}
+
+      {/* Sticky Week Tray */}
+      <WeekTray 
+        slots={weekSlots} 
+        meals={meals} 
+        onRemove={handleRemoveFromTray}
+        isShopMode={viewMode === 'shop'}
+        onShopToggle={() => setViewMode(prev => prev === 'shop' ? 'dashboard' : 'shop')}
+        onClear={handleClearWeek}
+        onUserClick={() => setIsUserMenuOpen(true)}
+      />
+
+      {/* Main Content Area */}
+      {viewMode === 'shop' ? (
+        <ShopList 
+            slots={weekSlots} 
+            meals={meals} 
+            checkedItems={shopChecked}
+            onToggle={handleShopToggle}
+        />
+      ) : (
+        <div className="pt-48 space-y-6 animate-in fade-in duration-500">
+          
+          {/* Search Bar */}
+          <div className="px-4 sticky top-[136px] z-40 bg-gray-50/95 backdrop-blur-sm pb-2 pt-1 transition-all">
+            <div className="relative max-w-lg mx-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                    type="text"
+                    placeholder="Search title, ingredients, tags..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-brand-500 outline-none text-base"
+                />
+                {searchQuery && (
+                    <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
+            </div>
+          </div>
+
+          {searchQuery ? (
+             /* Search Results View */
+             <section className="px-4 pb-20 max-w-5xl mx-auto">
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">
+                    Found {filteredMeals.length} result{filteredMeals.length !== 1 ? 's' : ''}
+                </h2>
+                
+                {filteredMeals.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {filteredMeals.map(meal => (
+                            <MealCard
+                                key={meal.id}
+                                meal={meal}
+                                tier={getTier(meal.lastCooked)}
+                                onAdd={handleAddToTray}
+                                onView={setViewingMeal}
+                                fluid={true} // Use fluid layout for grid
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+                        <p className="text-gray-400 mb-2">No meals found matching "{searchQuery}"</p>
+                        <button 
+                            onClick={() => setSearchQuery('')} 
+                            className="text-brand-600 font-medium hover:underline"
+                        >
+                            Clear search
+                        </button>
+                    </div>
+                )}
+             </section>
+          ) : (
+             /* Standard 3-Tier View */
+             <div className="space-y-8">
+                {/* Row 1: High Rotation */}
+                <section className="pl-4">
+                    <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
+                        Heavy Hitters <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Last 14 Days</span>
+                    </h2>
+                    <div className="flex overflow-x-auto space-x-4 pb-4 pr-4 snap-x no-scrollbar">
+                    {highTier.length > 0 ? highTier.map(meal => (
+                        <MealCard key={meal.id} meal={meal} tier="high" onAdd={handleAddToTray} onView={setViewingMeal} />
+                    )) : (
+                        <div className="h-[340px] w-[280px] flex items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm">
+                            No recent meals
+                        </div>
+                    )}
+                    </div>
+                </section>
+
+                {/* Row 2: Medium Rotation */}
+                <section className="pl-4 bg-gray-50/50">
+                    <h2 className="text-lg font-bold mb-3 text-slate-700">The Bench</h2>
+                    <div className="flex overflow-x-auto space-x-4 pb-4 pr-4 snap-x no-scrollbar">
+                    {mediumTier.map(meal => (
+                        <MealCard key={meal.id} meal={meal} tier="medium" onAdd={handleAddToTray} onView={setViewingMeal} />
+                    ))}
+                    </div>
+                </section>
+
+                {/* Row 3: The Archive */}
+                <section className="pl-4">
+                    <h2 className="text-lg font-bold mb-3 text-slate-600">The Archive</h2>
+                    <div className="flex overflow-x-auto space-x-4 pb-8 pr-4 snap-x no-scrollbar">
+                    {lowTier.map(meal => (
+                        <MealCard key={meal.id} meal={meal} tier="low" onAdd={handleAddToTray} onView={setViewingMeal} />
+                    ))}
+                    </div>
+                </section>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Floating Action Button & Family Mode Toggle */}
+      {viewMode === 'dashboard' && (
+        <div className="fixed bottom-6 right-6 flex flex-col gap-4 items-end z-40">
+           {/* Family Vote Button */}
+           <button 
+            onClick={() => setViewMode('voting')}
+            className="bg-white text-brand-900 p-3 rounded-full shadow-lg border border-gray-100 hover:scale-105 transition-transform"
+            title="Kids Vote Mode"
+          >
+            <Users size={24} />
+          </button>
+
+          {/* Add Meal FAB */}
+          <button 
+            onClick={openAddModal}
+            className="bg-black text-white p-4 rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all"
+          >
+            <Plus size={28} />
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
+      <AddMealModal 
+        isOpen={isAddModalOpen} 
+        onClose={closeAddModal} 
+        onSave={onSaveMealWrapper}
+        initialMeal={editingMeal}
+        onDelete={handleDeleteMeal}
+        onShowToast={showToast}
+      />
+      
+      <MealDetailsModal 
+        meal={viewingMeal}
+        onClose={() => setViewingMeal(null)}
+        onEdit={openEditModal}
+      />
+      
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onShowToast={showToast}
+      />
+
+      {/* User Menu Modal (Centered) */}
+      {isUserMenuOpen && (
+         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsUserMenuOpen(false)} />
+            
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
+                <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                        <UserCircle className="text-brand-600" size={20} />
+                        Settings
+                    </h3>
+                    <button onClick={() => setIsUserMenuOpen(false)} className="p-1 hover:bg-gray-200 rounded-full text-gray-500">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <div className="p-2 space-y-1">
+                    {user ? (
+                        <div className="px-4 py-3 bg-brand-50 mx-2 mt-2 rounded-xl mb-3">
+                            <p className="text-xs text-brand-600 font-bold uppercase tracking-wider mb-1">Signed in as</p>
+                            <p className="text-sm font-medium text-brand-900 truncate">{user.email}</p>
+                            <div className="text-[10px] text-brand-500 mt-1 flex items-center gap-1">
+                                <Database size={10} /> 
+                                <span>Data is syncing to <b>user_data</b> table</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="px-4 py-4 bg-gray-50 mx-2 mt-2 rounded-xl mb-3 border border-dashed border-gray-200 text-center">
+                            <p className="text-sm text-gray-500 mb-3">Sign in to sync your meals across devices and keep them safe.</p>
+                            <button 
+                                onClick={() => { setIsUserMenuOpen(false); setIsAuthModalOpen(true); }}
+                                className="w-full bg-brand-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-brand-700 transition-colors"
+                            >
+                                Sign In / Create Account
+                            </button>
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={() => handleRemoveDefaults(setIsUserMenuOpen)}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 rounded-xl flex items-center justify-between group transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                <Trash2 size={16} />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700">Remove Example Meals</span>
+                        </div>
+                        <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-500" />
+                    </button>
+
+                     {user && (
+                        <button 
+                            onClick={handleLogout}
+                            className="w-full text-left px-4 py-3 hover:bg-red-50 rounded-xl flex items-center justify-between group transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                    <LogOut size={16} />
+                                </div>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-red-700">Sign Out</span>
+                            </div>
+                        </button>
+                     )}
+                </div>
+                
+                <div className="p-3 text-center text-[10px] text-gray-400 bg-gray-50 border-t border-gray-100">
+                    The Rotation v1.0
+                </div>
+            </div>
+         </div>
+      )}
+
+    </div>
+  );
+}
+
+export default App;

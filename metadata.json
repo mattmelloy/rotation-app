@@ -1,0 +1,7 @@
+{
+  "name": "The Rotation",
+  "description": "A meal recall engine to solve dinner decision fatigue.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
