@@ -68,8 +68,13 @@ export function useCloudSync(
              }
              
              if (data.week_slots && Array.isArray(data.week_slots)) {
-                 setWeekSlots(data.week_slots);
-                 safeSetItem(`rotation_user_${userId}_week`, JSON.stringify(data.week_slots));
+                 // Migration: Ensure new format (array of mealIds)
+                 const migratedSlots = data.week_slots.map((s: any) => ({
+                    label: s.label,
+                    mealIds: Array.isArray(s.mealIds) ? s.mealIds : (s.mealId ? [s.mealId] : [])
+                 }));
+                 setWeekSlots(migratedSlots);
+                 safeSetItem(`rotation_user_${userId}_week`, JSON.stringify(migratedSlots));
              }
              
              if (data.shopping_list && Array.isArray(data.shopping_list)) {
