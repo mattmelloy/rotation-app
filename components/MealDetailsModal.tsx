@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Edit2, ExternalLink, Bot, FileText, Tag, Zap, ChefHat } from 'lucide-react';
+import { X, Edit2, ExternalLink, Bot, FileText, Tag, Zap, ChefHat, Plus } from 'lucide-react';
 import { Meal } from '../types';
 import { getEffortColor } from '../utils';
 
@@ -7,9 +7,10 @@ interface MealDetailsModalProps {
   meal: Meal | null;
   onClose: () => void;
   onEdit: (meal: Meal) => void;
+  onAdd: (meal: Meal) => void;
 }
 
-const MealDetailsModal: React.FC<MealDetailsModalProps> = ({ meal, onClose, onEdit }) => {
+const MealDetailsModal: React.FC<MealDetailsModalProps> = ({ meal, onClose, onEdit, onAdd }) => {
   const [showSourceImage, setShowSourceImage] = useState(false);
   const [methodTab, setMethodTab] = useState<'standard' | 'thermomix'>('standard');
 
@@ -143,10 +144,19 @@ const MealDetailsModal: React.FC<MealDetailsModalProps> = ({ meal, onClose, onEd
             </div>
         </div>
 
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center text-xs text-gray-400">
-            <span>Last cooked {new Date(meal.lastCooked).toLocaleDateString()}</span>
-             <button onClick={() => onEdit(meal)} className="flex items-center gap-1 text-gray-600 hover:text-black font-medium px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <Edit2 size={14} /> Edit Meal
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center gap-2">
+             <button 
+                onClick={() => onAdd(meal)} 
+                className="flex-1 bg-black text-white px-4 py-3 rounded-xl font-bold text-sm hover:bg-gray-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+             >
+                <Plus size={16} /> Add to Week
+             </button>
+             <button 
+                onClick={() => onEdit(meal)} 
+                className="p-3 text-gray-600 hover:text-black hover:bg-gray-200 rounded-xl transition-colors bg-gray-100"
+                title="Edit Meal"
+             >
+                <Edit2 size={18} />
             </button>
         </div>
       </div>

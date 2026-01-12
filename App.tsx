@@ -379,6 +379,10 @@ function App() {
         meal={viewingMeal}
         onClose={() => setViewingMeal(null)}
         onEdit={openEditModal}
+        onAdd={(meal) => {
+            setViewingMeal(null);
+            setSelectingDayForMeal(meal);
+        }}
       />
       
       <AuthModal 
