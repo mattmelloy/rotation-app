@@ -19,6 +19,7 @@ import ShopList from './components/ShopList';
 import FamilyVoting from './components/FamilyVoting';
 import Toast, { ToastType } from './components/Toast';
 import AuthModal from './components/AuthModal';
+import LandingPage from './components/LandingPage';
 
 function App() {
   // --- UI State ---
@@ -185,36 +186,19 @@ function App() {
   }
 
   if (!user && !isGuest) {
-     return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-700">
-           <div className="w-24 h-24 bg-brand-100 rounded-3xl flex items-center justify-center mb-8 rotate-3 shadow-xl">
-               <span className="text-5xl">🍳</span>
-           </div>
-           <h1 className="text-4xl font-extrabold text-gray-900 mb-2">The Rotation</h1>
-           <p className="text-gray-500 text-lg mb-10 max-w-sm">Simplify your family meals. Plan, shop, and cook with ease.</p>
-           
-           <div className="w-full max-w-xs space-y-4">
-               <button 
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="w-full bg-brand-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-brand-700 shadow-lg shadow-brand-200 transition-all hover:scale-105 active:scale-95"
-               >
-                  Get Started
-               </button>
-               <button 
-                  onClick={() => setIsGuest(true)}
-                  className="w-full bg-white text-gray-600 py-3.5 rounded-xl font-bold text-lg border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all"
-               >
-                  Continue as Guest
-               </button>
-           </div>
-           
-           <AuthModal 
-               isOpen={isAuthModalOpen}
-               onClose={() => setIsAuthModalOpen(false)}
-               onShowToast={showToast}
-           />
-        </div>
-     );
+    return (
+      <>
+        <LandingPage 
+          onGetStarted={() => setIsAuthModalOpen(true)}
+          onContinueAsGuest={() => setIsGuest(true)}
+        />
+        <AuthModal 
+           isOpen={isAuthModalOpen}
+           onClose={() => setIsAuthModalOpen(false)}
+           onShowToast={showToast}
+        />
+      </>
+    );
   }
 
   if (viewMode === 'voting') {
