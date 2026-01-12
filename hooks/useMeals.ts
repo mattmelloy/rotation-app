@@ -3,10 +3,27 @@ import { Meal, DaySlot, DAYS } from '../types';
 import { INITIAL_MEALS } from '../constants';
 import { ToastType } from '../components/Toast';
 
-export function useMeals(showToast: (msg: string, type: ToastType) => void) {
+interface UseMealsParams {
+  showToast: (msg: string, type: ToastType) => void;
+  isGuest: boolean;
+  userId: string | null;
+}
+
+export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [weekSlots, setWeekSlots] = useState<DaySlot[]>([]);
   const [shopChecked, setShopChecked] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Determine storage keys based on mode
+  const getStorageKey = (type: 'meals' | 'week' | 'shop') => {
+    if (isGuest) {
+      return `rotation_guest_${type}`;
+    }
+    // For logged-in users, we primarily rely on cloud sync
+    // Local storage is only used as a temporary cache
+    return userId ? `rotation_user_${userId}_${type}` : `rotation_${type}`;
+  };
 
   const safeSetItem = (key: string, value: string) => {
     try {
@@ -19,17 +36,25 @@ export function useMeals(showToast: (msg: string, type: ToastType) => void) {
 
   // --- Initialization ---
   useEffect(() => {
+    setIsInitialized(false);
+    
     // Load Local Data First
-    const savedMeals = localStorage.getItem('rotation_meals');
+    const mealsKey = getStorageKey('meals');
+    const savedMeals = localStorage.getItem(mealsKey);
     if (savedMeals) {
       setMeals(JSON.parse(savedMeals));
-    } else {
+    } else if (isGuest) {
+      // Only set initial meals for guests
       setMeals(INITIAL_MEALS);
-      safeSetItem('rotation_meals', JSON.stringify(INITIAL_MEALS));
+      safeSetItem(mealsKey, JSON.stringify(INITIAL_MEALS));
+    } else {
+      // For logged-in users, start empty and let cloud sync populate
+      setMeals([]);
     }
 
     // Load Week Plan
-    const savedSlots = localStorage.getItem('rotation_week');
+    const weekKey = getStorageKey('week');
+    const savedSlots = localStorage.getItem(weekKey);
     if (savedSlots) {
       setWeekSlots(JSON.parse(savedSlots));
     } else {
@@ -38,28 +63,37 @@ export function useMeals(showToast: (msg: string, type: ToastType) => void) {
     }
 
     // Load Shopping List
-    const savedShop = localStorage.getItem('rotation_shop_checked');
+    const shopKey = getStorageKey('shop');
+    const savedShop = localStorage.getItem(shopKey);
     if (savedShop) {
       setShopChecked(JSON.parse(savedShop));
+    } else {
+      setShopChecked([]);
     }
-  }, []);
+
+    // Mark as initialized after a brief delay to allow cloud sync to take over
+    setTimeout(() => setIsInitialized(true), 100);
+  }, [isGuest, userId]);
 
   // --- Persistence Listeners (Local Storage) ---
+  // Only persist to localStorage after initialization to avoid race conditions
   useEffect(() => {
-    if (meals.length > 0) {
-        safeSetItem('rotation_meals', JSON.stringify(meals));
+    if (isInitialized && meals.length > 0) {
+        safeSetItem(getStorageKey('meals'), JSON.stringify(meals));
     }
-  }, [meals]);
+  }, [meals, isInitialized]);
 
   useEffect(() => {
-    if (weekSlots.length > 0) {
-        safeSetItem('rotation_week', JSON.stringify(weekSlots));
+    if (isInitialized && weekSlots.length > 0) {
+        safeSetItem(getStorageKey('week'), JSON.stringify(weekSlots));
     }
-  }, [weekSlots]);
+  }, [weekSlots, isInitialized]);
 
   useEffect(() => {
-    safeSetItem('rotation_shop_checked', JSON.stringify(shopChecked));
-  }, [shopChecked]);
+    if (isInitialized) {
+        safeSetItem(getStorageKey('shop'), JSON.stringify(shopChecked));
+    }
+  }, [shopChecked, isInitialized]);
 
   // --- Handlers ---
   const handleAddToTray = (meal: Meal) => {

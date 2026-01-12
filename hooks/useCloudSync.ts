@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Meal, DaySlot } from '../types';
 import { ToastType } from '../components/Toast';
@@ -11,11 +11,14 @@ export function useCloudSync(
   setWeekSlots: (slots: DaySlot[]) => void,
   setShopChecked: (checked: string[]) => void,
   showToast: (msg: string, type: ToastType) => void,
-  safeSetItem: (key: string, value: string) => void
+  safeSetItem: (key: string, value: string) => void,
+  isGuest: boolean
 ) {
   const [user, setUser] = useState<any>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCloudSyncInitialized, setIsCloudSyncInitialized] = useState(false);
+  const isFetchingRef = useRef(false);
 
   // 1. Check Auth Status on Mount & Listen for Changes
   useEffect(() => {
@@ -44,6 +47,10 @@ export function useCloudSync(
 
   // 2. Fetch Data from Cloud
   const fetchCloudData = async (userId: string) => {
+    if (isFetchingRef.current) return; // Prevent duplicate fetches
+    isFetchingRef.current = true;
+    setIsCloudSyncInitialized(false);
+
     try {
         const { data, error } = await supabase!
             .from('user_data')
@@ -52,29 +59,44 @@ export function useCloudSync(
             .single();
         
         if (data) {
-             // Merging Logic: Cloud wins if data exists
-             if (data.meals && Array.isArray(data.meals) && data.meals.length > 0) {
+             // Cloud data wins - completely replace local state
+             if (data.meals && Array.isArray(data.meals)) {
                  setMeals(data.meals);
-                 safeSetItem('rotation_meals', JSON.stringify(data.meals));
+                 safeSetItem(`rotation_user_${userId}_meals`, JSON.stringify(data.meals));
+             } else {
+                 setMeals([]);
              }
-             if (data.week_slots && Array.isArray(data.week_slots) && data.week_slots.length > 0) {
+             
+             if (data.week_slots && Array.isArray(data.week_slots)) {
                  setWeekSlots(data.week_slots);
-                 safeSetItem('rotation_week', JSON.stringify(data.week_slots));
+                 safeSetItem(`rotation_user_${userId}_week`, JSON.stringify(data.week_slots));
              }
+             
              if (data.shopping_list && Array.isArray(data.shopping_list)) {
                  setShopChecked(data.shopping_list);
-                 safeSetItem('rotation_shop_checked', JSON.stringify(data.shopping_list));
+                 safeSetItem(`rotation_user_${userId}_shop`, JSON.stringify(data.shopping_list));
+             } else {
+                 setShopChecked([]);
              }
+        } else if (error && error.code === 'PGRST116') {
+            // No data exists for this user yet - that's OK, start fresh
+            console.log("No cloud data found for user, starting fresh");
         }
     } catch (err) {
         console.error("Error fetching cloud data", err);
+    } finally {
+        // Mark as initialized after fetching so sync can begin
+        setTimeout(() => {
+            setIsCloudSyncInitialized(true);
+            isFetchingRef.current = false;
+        }, 200);
     }
   };
 
   // 3. Save Data to Cloud
   // Note: This replaces the entire row. In v2, consider granular updates or optimistic concurrency control.
   const saveToCloud = useCallback(async (currentMeals: Meal[], currentSlots: DaySlot[], currentShop: string[]) => {
-    if (!user || !isSupabaseConfigured()) return;
+    if (!user || !isSupabaseConfigured() || isGuest || !isCloudSyncInitialized) return;
     
     try {
         const { error } = await supabase!.from('user_data').upsert({
@@ -91,20 +113,26 @@ export function useCloudSync(
         console.error("Cloud save failed", err);
         showToast(`Sync failed: ${err.message}`, "error");
     }
-  }, [user, showToast]);
+  }, [user, showToast, isGuest, isCloudSyncInitialized]);
 
-  // Sync listeners
+  // Sync listeners - only sync after cloud initialization is complete
   useEffect(() => {
-    if (user && meals.length > 0) saveToCloud(meals, weekSlots, shopChecked);
-  }, [meals]);
-
-  useEffect(() => {
-    if (user && weekSlots.length > 0) saveToCloud(meals, weekSlots, shopChecked);
-  }, [weekSlots]);
+    if (user && !isGuest && isCloudSyncInitialized && meals.length > 0) {
+        saveToCloud(meals, weekSlots, shopChecked);
+    }
+  }, [meals, isCloudSyncInitialized]);
 
   useEffect(() => {
-    if (user) saveToCloud(meals, weekSlots, shopChecked);
-  }, [shopChecked]);
+    if (user && !isGuest && isCloudSyncInitialized && weekSlots.length > 0) {
+        saveToCloud(meals, weekSlots, shopChecked);
+    }
+  }, [weekSlots, isCloudSyncInitialized]);
+
+  useEffect(() => {
+    if (user && !isGuest && isCloudSyncInitialized) {
+        saveToCloud(meals, weekSlots, shopChecked);
+    }
+  }, [shopChecked, isCloudSyncInitialized]);
 
   return {
     user,

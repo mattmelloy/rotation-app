@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Users, Search, X, LogOut, Trash2, UserCircle, Database, ChevronRight, Loader2 } from 'lucide-react';
 import { Meal, ViewMode } from './types';
 import { getTier } from './utils';
@@ -34,6 +34,10 @@ function App() {
   };
 
   // --- Business Logic Hooks ---
+  // First, create a preliminary user state for determining mode
+  const [prelimUser, setPrelimUser] = useState<any>(null);
+  
+  // Use meals hook with proper context
   const {
       meals, setMeals,
       weekSlots, setWeekSlots,
@@ -46,8 +50,13 @@ function App() {
       handleClearWeek,
       handleRemoveDefaults,
       handleShopToggle
-  } = useMeals(showToast);
+  } = useMeals({ 
+      showToast, 
+      isGuest, 
+      userId: prelimUser?.id || null 
+  });
 
+  // Then connect cloud sync
   const {
       user, setUser,
       isAuthModalOpen, setIsAuthModalOpen,
@@ -60,8 +69,14 @@ function App() {
       setWeekSlots, 
       setShopChecked, 
       showToast, 
-      safeSetItem
+      safeSetItem,
+      isGuest
   );
+
+  // Keep prelimUser in sync with actual user from cloud sync
+  useEffect(() => {
+    setPrelimUser(user);
+  }, [user]);
 
   // --- Handlers that rely on UI state or specific flows ---
 
