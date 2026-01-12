@@ -148,7 +148,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
       thermomixMethod: thermomixMethod.split('\n').filter(l => l.trim()),
       sourceUrl,
       sourceType,
-      sourceImage: sourceImage || undefined,
+      sourceImage: undefined, // Do not store source image
       tags: tags
     };
 
@@ -196,7 +196,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
       setLoadingMessage('Reading recipe and adapting steps...');
       const compressedBase64 = await compressImage(file, 1200, 0.7);
       const base64Data = compressedBase64.split(',')[1];
-      setSourceImage(compressedBase64);
+      // We process the image but do not store it to save space
       setSourceType('image'); 
       const aiData = await parseRecipeFromImage(base64Data, useThermomix);
       populateFromAI(aiData);
@@ -380,7 +380,8 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
                             <Camera size={18} />
                             <span>Scan Recipe Book</span>
                         </div>
-                        <p className="text-sm text-gray-500 mb-4">Take a photo of a cookbook page. We'll extract text and adapt steps.</p>
+                        <p className="text-sm text-gray-500 mb-2">Take a photo of a cookbook page. We'll extract text and adapt steps.</p>
+                        <p className="text-xs text-orange-600 bg-orange-50 p-2 rounded mb-4 font-medium">Note: Images are processed to extract text but not stored. Please keep a copy of the original.</p>
                         <input 
                             type="file" 
                             accept="image/*" 
