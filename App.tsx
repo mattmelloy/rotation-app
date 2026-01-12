@@ -403,7 +403,7 @@ function App() {
       {selectingDayForMeal && (
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center pointer-events-none">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setSelectingDayForMeal(null)} />
-            <div className="w-full max-w-sm bg-white p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-in slide-in-from-bottom duration-200 m-4">
+            <div className="relative z-10 w-full max-w-sm bg-white p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-in slide-in-from-bottom duration-200 m-4">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-lg text-gray-800">Add to which day?</h3>
                     <button onClick={() => setSelectingDayForMeal(null)} className="p-1 hover:bg-gray-100 rounded-full">
