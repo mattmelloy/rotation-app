@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Meal, DaySlot, DAYS } from '../types';
 import { INITIAL_MEALS } from '../constants';
 import { ToastType } from '../components/Toast';
+import { getItem, setItem } from '../lib/storage';
 
 interface UseMealsParams {
   showToast: (msg: string, type: ToastType) => void;
@@ -25,9 +26,9 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
     return userId ? `rotation_user_${userId}_${type}` : `rotation_${type}`;
   };
 
-  const safeSetItem = (key: string, value: string) => {
+  const safeSetItem = async (key: string, value: string) => {
     try {
-      localStorage.setItem(key, value);
+      await setItem(key, value);
     } catch (e) {
       console.error("Storage Error", e);
       showToast("Storage Full! Please delete some meals or use smaller images.", "error");
@@ -38,47 +39,86 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
   useEffect(() => {
     setIsInitialized(false);
     
-    // Load Local Data First
-    const mealsKey = getStorageKey('meals');
-    const savedMeals = localStorage.getItem(mealsKey);
-    if (savedMeals) {
-      setMeals(JSON.parse(savedMeals));
-    } else if (isGuest) {
-      // Only set initial meals for guests
-      setMeals(INITIAL_MEALS);
-      safeSetItem(mealsKey, JSON.stringify(INITIAL_MEALS));
-    } else {
-      // For logged-in users, start empty and let cloud sync populate
-      setMeals([]);
-    }
+    const loadData = async () => {
+        try {
+            // Load Local Data First
+            const mealsKey = getStorageKey('meals');
+            
+            // Try IndexedDB first
+            let savedMeals = await getItem(mealsKey);
+            
+            // Migration: Check localStorage if not in IndexedDB
+            if (!savedMeals) {
+                const localMeals = localStorage.getItem(mealsKey);
+                if (localMeals) {
+                    savedMeals = localMeals;
+                    await setItem(mealsKey, localMeals); // Migrate to IndexedDB
+                }
+            }
 
-    // Load Week Plan
-    const weekKey = getStorageKey('week');
-    const savedSlots = localStorage.getItem(weekKey);
-    if (savedSlots) {
-      // Migration: Convert old single-meal format to new array format if needed
-      const loaded = JSON.parse(savedSlots);
-      const migrated = loaded.map((s: any) => ({
-        label: s.label,
-        mealIds: Array.isArray(s.mealIds) ? s.mealIds : (s.mealId ? [s.mealId] : [])
-      }));
-      setWeekSlots(migrated);
-    } else {
-      const initialSlots = DAYS.map(d => ({ label: d, mealIds: [] }));
-      setWeekSlots(initialSlots);
-    }
+            if (savedMeals) {
+                setMeals(JSON.parse(savedMeals));
+            } else if (isGuest) {
+                // Only set initial meals for guests
+                setMeals(INITIAL_MEALS);
+                await safeSetItem(mealsKey, JSON.stringify(INITIAL_MEALS));
+            } else {
+                // For logged-in users, start empty and let cloud sync populate
+                setMeals([]);
+            }
 
-    // Load Shopping List
-    const shopKey = getStorageKey('shop');
-    const savedShop = localStorage.getItem(shopKey);
-    if (savedShop) {
-      setShopChecked(JSON.parse(savedShop));
-    } else {
-      setShopChecked([]);
-    }
+            // Load Week Plan
+            const weekKey = getStorageKey('week');
+            let savedSlots = await getItem(weekKey);
+            
+            if (!savedSlots) {
+                const localSlots = localStorage.getItem(weekKey);
+                if (localSlots) {
+                    savedSlots = localSlots;
+                    await setItem(weekKey, localSlots);
+                }
+            }
 
-    // Mark as initialized after a brief delay to allow cloud sync to take over
-    setTimeout(() => setIsInitialized(true), 100);
+            if (savedSlots) {
+                // Migration: Convert old single-meal format to new array format if needed
+                const loaded = JSON.parse(savedSlots);
+                const migrated = loaded.map((s: any) => ({
+                    label: s.label,
+                    mealIds: Array.isArray(s.mealIds) ? s.mealIds : (s.mealId ? [s.mealId] : [])
+                }));
+                setWeekSlots(migrated);
+            } else {
+                const initialSlots = DAYS.map(d => ({ label: d, mealIds: [] }));
+                setWeekSlots(initialSlots);
+            }
+
+            // Load Shopping List
+            const shopKey = getStorageKey('shop');
+            let savedShop = await getItem(shopKey);
+            
+            if (!savedShop) {
+                const localShop = localStorage.getItem(shopKey);
+                if (localShop) {
+                    savedShop = localShop;
+                    await setItem(shopKey, localShop);
+                }
+            }
+
+            if (savedShop) {
+                setShopChecked(JSON.parse(savedShop));
+            } else {
+                setShopChecked([]);
+            }
+        } catch (err) {
+            console.error("Failed to load data", err);
+            showToast("Error loading saved data", "error");
+        } finally {
+            // Mark as initialized after a brief delay to allow cloud sync to take over
+            setTimeout(() => setIsInitialized(true), 100);
+        }
+    };
+
+    loadData();
   }, [isGuest, userId]);
 
   // --- Persistence Listeners (Local Storage) ---
