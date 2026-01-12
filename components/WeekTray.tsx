@@ -1,6 +1,6 @@
 import React from 'react';
 import { Meal, DaySlot } from '../types';
-import { X, ShoppingBag, Trash2, UserCircle } from 'lucide-react';
+import { X, ShoppingBag, Trash2, UserCircle, Sparkles } from 'lucide-react';
 
 interface WeekTrayProps {
   slots: DaySlot[];
@@ -10,6 +10,7 @@ interface WeekTrayProps {
   isShopMode: boolean;
   onClear: () => void;
   onUserClick: () => void;
+  onAIChatToggle: () => void;
   onDayClick: (dayIndex: number) => void;
 }
 
@@ -21,6 +22,7 @@ const WeekTray: React.FC<WeekTrayProps> = ({
   isShopMode, 
   onClear,
   onUserClick,
+  onAIChatToggle,
   onDayClick
 }) => {
   // Calculate fill percentage - considering a day "filled" if it has at least one meal
@@ -36,6 +38,16 @@ const WeekTray: React.FC<WeekTrayProps> = ({
           </div>
           
           <div className="flex items-center gap-2">
+            <button 
+                onClick={onAIChatToggle}
+                className="group relative p-[2px] rounded-full bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 hover:scale-110 transition-transform shadow-sm mr-1"
+                title="Chat with AI Chef"
+            >
+                <div className="bg-white p-1 rounded-full group-hover:bg-white/90 transition-colors">
+                    <Sparkles size={16} className="text-purple-600" />
+                </div>
+            </button>
+
             <button 
                 onClick={onClear}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"

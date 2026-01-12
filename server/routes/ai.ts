@@ -204,4 +204,67 @@ router.post('/thermomix-method', async (req, res) => {
   }
 });
 
+// POST /api/ai/chat
+router.post('/chat', async (req, res) => {
+  try {
+    const { messages } = req.body;
+    
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'messages array is required' });
+    }
+
+    // System prompt to enforce persona
+    const systemPrompt = `
+      You are an expert AI Chef assistant.
+      Your goal is to help users with cooking questions, recipe ideas, ingredient substitutions, and meal planning.
+      
+      STRICT RULES:
+      1. You MUST ONLY answer questions related to food, cooking, recipes, kitchen techniques, and meal planning.
+      2. If a user asks about non-food topics (politics, coding, general news, etc.), politely decline and steer them back to cooking (e.g., "I'm just a chef, let's stick to the kitchen!").
+      3. Do NOT generate images.
+      4. Keep answers concise, friendly, and helpful.
+    `;
+
+    const ai = getAI();
+    
+    // Construct the chat history with system prompt
+    const contents = [
+      {
+        role: 'user',
+        parts: [{ text: systemPrompt }]
+      },
+      {
+        role: 'model',
+        parts: [{ text: "Understood, Chef! I am ready to help with all things cooking. What's on the menu?" }]
+      }
+    ];
+
+    // Add all messages from the conversation (including the latest one)
+    if (messages.length > 0) {
+      const userMessages = messages.map((msg: any) => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      }));
+      contents.push(...userMessages);
+    }
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: contents
+    });
+
+    // In this SDK version, response.text seems to be a string property
+    const text = response.text;
+    
+    if (!text) {
+        throw new Error("No response text received from AI");
+    }
+
+    res.json({ text });
+  } catch (error: any) {
+    console.error("AI Chat Error:", error);
+    res.status(500).json({ error: 'Failed to generate chat response', message: error.message });
+  }
+});
+
 export default router;

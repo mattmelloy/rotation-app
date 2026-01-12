@@ -20,10 +20,12 @@ import FamilyVoting from './components/FamilyVoting';
 import Toast, { ToastType } from './components/Toast';
 import AuthModal from './components/AuthModal';
 import LandingPage from './components/LandingPage';
+import AIChefChat from './components/AIChefChat';
 
 function App() {
   // --- UI State ---
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [viewingMeal, setViewingMeal] = useState<Meal | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
@@ -231,6 +233,7 @@ function App() {
         onShopToggle={() => setViewMode(prev => prev === 'shop' ? 'dashboard' : 'shop')}
         onClear={handleClearWeek}
         onUserClick={() => setIsUserMenuOpen(true)}
+        onAIChatToggle={() => setIsAIChatOpen(true)}
         onDayClick={(index) => setViewingDayIndex(index)}
       />
 
@@ -366,6 +369,11 @@ function App() {
       )}
 
       {/* Modals */}
+      <AIChefChat 
+        isOpen={isAIChatOpen} 
+        onClose={() => setIsAIChatOpen(false)} 
+      />
+
       <AddMealModal 
         isOpen={isAddModalOpen} 
         onClose={closeAddModal} 
