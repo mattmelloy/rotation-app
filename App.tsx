@@ -4,6 +4,8 @@ import { Meal, ViewMode, DAYS } from './types';
 import { getTier } from './utils';
 import { supabase } from './lib/supabase';
 
+const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 // Hooks
 import { useMeals } from './hooks/useMeals';
 import { useCloudSync } from './hooks/useCloudSync';
@@ -29,6 +31,7 @@ function App() {
   const [isGuest, setIsGuest] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
   const [selectingDayForMeal, setSelectingDayForMeal] = useState<Meal | null>(null);
+  const [viewingDayIndex, setViewingDayIndex] = useState<number | null>(null);
 
   const showToast = (msg: string, type: ToastType = 'success') => {
     setToast({ msg, type });
@@ -244,6 +247,7 @@ function App() {
         onShopToggle={() => setViewMode(prev => prev === 'shop' ? 'dashboard' : 'shop')}
         onClear={handleClearWeek}
         onUserClick={() => setIsUserMenuOpen(true)}
+        onDayClick={(index) => setViewingDayIndex(index)}
       />
 
       {/* Main Content Area */}
@@ -411,34 +415,81 @@ function App() {
                     </button>
                 </div>
                 
-                <div className="grid grid-cols-4 gap-3 mb-4">
-                    {DAYS.map((day, index) => (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    {FULL_DAYS.map((day, index) => (
                         <button
                             key={index}
                             onClick={() => {
                                 handleAddToTray(selectingDayForMeal, index);
                                 setSelectingDayForMeal(null);
                             }}
-                            className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 border-2 border-gray-100 hover:border-brand-500 hover:bg-brand-50 transition-all active:scale-95"
+                            className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-100 hover:border-brand-500 hover:bg-brand-50 transition-all active:scale-95"
                         >
                             <span className="text-sm font-bold text-gray-700">{day}</span>
-                            <span className="text-[10px] text-gray-400 mt-1">
-                                {weekSlots[index]?.mealIds.length || 0}/6
+                            <span className="text-xs bg-white px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 font-medium">
+                                {weekSlots[index]?.mealIds.length || 0}
                             </span>
                         </button>
                     ))}
                     
+                    {/* Auto Assign Button */}
                     {/* Auto Assign Button */}
                     <button
                         onClick={() => {
                             handleAddToTray(selectingDayForMeal);
                             setSelectingDayForMeal(null);
                         }}
-                        className="flex flex-col items-center justify-center p-3 rounded-xl bg-brand-50 border-2 border-brand-100 text-brand-700 hover:bg-brand-100 transition-all active:scale-95"
+                        className="flex items-center justify-between px-4 py-3 rounded-xl bg-brand-50 border-2 border-brand-100 text-brand-700 hover:bg-brand-100 transition-all active:scale-95 col-span-2" // Span full width? or keep as last item
                     >
-                        <span className="text-sm font-bold">Auto</span>
-                        <span className="text-[10px] opacity-60 mt-1">Next Empty</span>
+                        <span className="text-sm font-bold">Auto Assign</span>
+                        <span className="text-xs opacity-60">Next Empty Slot</span>
                     </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Day Details Modal (View Menu) */}
+      {viewingDayIndex !== null && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setViewingDayIndex(null)} />
+            <div className="relative z-10 w-full max-w-sm bg-white p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-in slide-in-from-bottom duration-200 m-4 max-h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4 flex-none">
+                    <h3 className="font-bold text-lg text-gray-800">{FULL_DAYS[viewingDayIndex]}'s Menu</h3>
+                    <button onClick={() => setViewingDayIndex(null)} className="p-1 hover:bg-gray-100 rounded-full">
+                        <X size={20} className="text-gray-500" />
+                    </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-1">
+                    {weekSlots[viewingDayIndex].mealIds.length > 0 ? (
+                        weekSlots[viewingDayIndex].mealIds.map((mealId, idx) => { // Use idx for unique key if duplicate meals allowed
+                            const meal = meals.find(m => m.id === mealId);
+                            if (!meal) return null;
+                            return (
+                                <div key={`${mealId}-${idx}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div className="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
+                                        <img src={meal.image} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-sm text-gray-800 truncate">{meal.title}</p>
+                                        <p className="text-xs text-gray-500">{meal.protein}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRemoveFromTray(viewingDayIndex, mealId)}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Remove from day"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">
+                            <p>No meals planned for this day.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

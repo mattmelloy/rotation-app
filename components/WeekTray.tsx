@@ -10,6 +10,7 @@ interface WeekTrayProps {
   isShopMode: boolean;
   onClear: () => void;
   onUserClick: () => void;
+  onDayClick: (dayIndex: number) => void;
 }
 
 const WeekTray: React.FC<WeekTrayProps> = ({ 
@@ -19,7 +20,8 @@ const WeekTray: React.FC<WeekTrayProps> = ({
   onShopToggle, 
   isShopMode, 
   onClear,
-  onUserClick
+  onUserClick,
+  onDayClick
 }) => {
   // Calculate fill percentage - considering a day "filled" if it has at least one meal
   const filledDays = slots.filter(s => s.mealIds && s.mealIds.length > 0).length;
@@ -76,7 +78,11 @@ const WeekTray: React.FC<WeekTrayProps> = ({
             const extraCount = dayMeals.length - 1;
             
             return (
-              <div key={dayIndex} className="flex flex-col items-center min-w-0 group/day relative">
+              <div 
+                key={dayIndex} 
+                className="flex flex-col items-center min-w-0 group/day relative cursor-pointer active:scale-95 transition-transform"
+                onClick={() => onDayClick(dayIndex)}
+              >
                 <span className="text-[10px] font-bold text-gray-400 mb-0.5">{slot.label}</span>
                 
                 {/* Image Container */}
