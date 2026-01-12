@@ -49,7 +49,8 @@ function App() {
       handleDeleteMeal: deleteMealHook,
       handleClearWeek,
       handleRemoveDefaults,
-      handleShopToggle
+      handleShopToggle,
+      handleCleanupStorage
   } = useMeals({ 
       showToast, 
       isGuest, 
@@ -434,6 +435,19 @@ function App() {
                             </button>
                         </div>
                     )}
+
+                    <button 
+                        onClick={() => { handleCleanupStorage(); setIsUserMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 rounded-xl flex items-center justify-between group transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                <Database size={16} />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700">Free Up Space (Delete Scans)</span>
+                        </div>
+                        <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-500" />
+                    </button>
 
                     <button 
                         onClick={() => handleRemoveDefaults(setIsUserMenuOpen)}

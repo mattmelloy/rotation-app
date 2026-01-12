@@ -250,6 +250,27 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
     });
   };
 
+  const handleCleanupStorage = () => {
+    if (window.confirm("This will permanently delete all original recipe scans (source images) from your history to free up space. The recipes themselves will be kept. Continue?")) {
+        let count = 0;
+        const newMeals = meals.map(m => {
+            if (m.sourceImage) {
+                count++;
+                const { sourceImage, ...rest } = m;
+                return rest as Meal;
+            }
+            return m;
+        });
+        
+        if (count > 0) {
+            setMeals(newMeals);
+            showToast(`Removed ${count} scanned images. Syncing...`, 'success');
+        } else {
+            showToast("No scanned images found to clean.", 'info');
+        }
+    }
+  };
+
   return {
       meals, setMeals,
       weekSlots, setWeekSlots,
@@ -261,6 +282,7 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
       handleDeleteMeal,
       handleClearWeek,
       handleRemoveDefaults,
-      handleShopToggle
+      handleShopToggle,
+      handleCleanupStorage
   };
 }
