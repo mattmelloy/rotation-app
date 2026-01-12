@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Search, X, LogOut, Trash2, UserCircle, Database, ChevronRight, Loader2 } from 'lucide-react';
-import { Meal, ViewMode } from './types';
+import { Meal, ViewMode, DAYS } from './types';
 import { getTier } from './utils';
 import { supabase } from './lib/supabase';
 
@@ -28,6 +28,7 @@ function App() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
+  const [selectingDayForMeal, setSelectingDayForMeal] = useState<Meal | null>(null);
 
   const showToast = (msg: string, type: ToastType = 'success') => {
     setToast({ msg, type });
@@ -292,7 +293,7 @@ function App() {
                                 key={meal.id}
                                 meal={meal}
                                 tier={getTier(meal.lastCooked)}
-                                onAdd={handleAddToTray}
+                                onAdd={setSelectingDayForMeal}
                                 onView={setViewingMeal}
                                 fluid={true} // Use fluid layout for grid
                             />
@@ -320,7 +321,7 @@ function App() {
                     </h2>
                     <div className="flex overflow-x-auto space-x-4 pb-4 pr-4 snap-x no-scrollbar">
                     {highTier.length > 0 ? highTier.map(meal => (
-                        <MealCard key={meal.id} meal={meal} tier="high" onAdd={handleAddToTray} onView={setViewingMeal} />
+                        <MealCard key={meal.id} meal={meal} tier="high" onAdd={setSelectingDayForMeal} onView={setViewingMeal} />
                     )) : (
                         <div className="h-[340px] w-[280px] flex items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm">
                             No recent meals
@@ -334,7 +335,7 @@ function App() {
                     <h2 className="text-lg font-bold mb-3 text-slate-700">The Bench</h2>
                     <div className="flex overflow-x-auto space-x-4 pb-4 pr-4 snap-x no-scrollbar">
                     {mediumTier.map(meal => (
-                        <MealCard key={meal.id} meal={meal} tier="medium" onAdd={handleAddToTray} onView={setViewingMeal} />
+                        <MealCard key={meal.id} meal={meal} tier="medium" onAdd={setSelectingDayForMeal} onView={setViewingMeal} />
                     ))}
                     </div>
                 </section>
@@ -344,7 +345,7 @@ function App() {
                     <h2 className="text-lg font-bold mb-3 text-slate-600">The Archive</h2>
                     <div className="flex overflow-x-auto space-x-4 pb-8 pr-4 snap-x no-scrollbar">
                     {lowTier.map(meal => (
-                        <MealCard key={meal.id} meal={meal} tier="low" onAdd={handleAddToTray} onView={setViewingMeal} />
+                        <MealCard key={meal.id} meal={meal} tier="low" onAdd={setSelectingDayForMeal} onView={setViewingMeal} />
                     ))}
                     </div>
                 </section>
@@ -397,6 +398,51 @@ function App() {
         onClose={() => setIsAuthModalOpen(false)}
         onShowToast={showToast}
       />
+
+      {/* Day Selector Modal */}
+      {selectingDayForMeal && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setSelectingDayForMeal(null)} />
+            <div className="w-full max-w-sm bg-white p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-in slide-in-from-bottom duration-200 m-4">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-gray-800">Add to which day?</h3>
+                    <button onClick={() => setSelectingDayForMeal(null)} className="p-1 hover:bg-gray-100 rounded-full">
+                        <X size={20} className="text-gray-500" />
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                    {DAYS.map((day, index) => (
+                        <button
+                            key={index}
+                            onClick={() => {
+                                handleAddToTray(selectingDayForMeal, index);
+                                setSelectingDayForMeal(null);
+                            }}
+                            className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 border-2 border-gray-100 hover:border-brand-500 hover:bg-brand-50 transition-all active:scale-95"
+                        >
+                            <span className="text-sm font-bold text-gray-700">{day}</span>
+                            <span className="text-[10px] text-gray-400 mt-1">
+                                {weekSlots[index]?.mealIds.length || 0}/6
+                            </span>
+                        </button>
+                    ))}
+                    
+                    {/* Auto Assign Button */}
+                    <button
+                        onClick={() => {
+                            handleAddToTray(selectingDayForMeal);
+                            setSelectingDayForMeal(null);
+                        }}
+                        className="flex flex-col items-center justify-center p-3 rounded-xl bg-brand-50 border-2 border-brand-100 text-brand-700 hover:bg-brand-100 transition-all active:scale-95"
+                    >
+                        <span className="text-sm font-bold">Auto</span>
+                        <span className="text-[10px] opacity-60 mt-1">Next Empty</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* User Menu Modal (Centered) */}
       {isUserMenuOpen && (

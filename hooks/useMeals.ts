@@ -142,23 +142,43 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
   }, [shopChecked, isInitialized]);
 
   // --- Handlers ---
-  const handleAddToTray = (meal: Meal) => {
-    // Find first day with 0 meals, otherwise append to first day with < 3 meals
-    let targetIndex = weekSlots.findIndex(s => s.mealIds.length === 0);
-    
-    // If all days have at least one meal, look for days with < 3 meals
-    if (targetIndex === -1) {
-        targetIndex = weekSlots.findIndex(s => s.mealIds.length < 3);
+  const handleAddToTray = (meal: Meal, targetIndex?: number) => {
+    // 1. Direct Add (Manual Selection)
+    if (targetIndex !== undefined) {
+        if (targetIndex >= 0 && targetIndex < weekSlots.length) {
+             const newSlots = [...weekSlots];
+             // Limit check (optional, but good for UI sanity)
+             if (newSlots[targetIndex].mealIds.length >= 6) {
+                 showToast("Day is full (max 6 items)", "error");
+                 return;
+             }
+             newSlots[targetIndex] = { 
+                 ...newSlots[targetIndex], 
+                 mealIds: [...newSlots[targetIndex].mealIds, meal.id] 
+             };
+             setWeekSlots(newSlots);
+             showToast(`Added ${meal.title} to ${newSlots[targetIndex].label}`, 'success');
+        }
+        return;
     }
 
-    if (targetIndex !== -1) {
+    // 2. Auto Add (Original Logic)
+    // Find first day with 0 meals, otherwise append to first day with < 3 meals
+    let autoIndex = weekSlots.findIndex(s => s.mealIds.length === 0);
+    
+    // If all days have at least one meal, look for days with < 3 meals
+    if (autoIndex === -1) {
+        autoIndex = weekSlots.findIndex(s => s.mealIds.length < 3);
+    }
+
+    if (autoIndex !== -1) {
       const newSlots = [...weekSlots];
-      newSlots[targetIndex] = { 
-          ...newSlots[targetIndex], 
-          mealIds: [...newSlots[targetIndex].mealIds, meal.id] 
+      newSlots[autoIndex] = { 
+          ...newSlots[autoIndex], 
+          mealIds: [...newSlots[autoIndex].mealIds, meal.id] 
       };
       setWeekSlots(newSlots);
-      showToast(`Added ${meal.title} to ${newSlots[targetIndex].label}`, 'success');
+      showToast(`Added ${meal.title} to ${newSlots[autoIndex].label}`, 'success');
     } else {
       showToast("Your week is getting full! Try removing some meals.", "error");
     }
