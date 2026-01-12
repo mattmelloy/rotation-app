@@ -18,9 +18,11 @@ interface ChecklistItem {
 }
 
 const ShopList: React.FC<ShopListProps> = ({ slots, meals, checkedItems, onToggle }) => {
+  // Collect all meals from all slots (flattening the array of arrays)
   const activeMeals = slots
-    .map(slot => slot.mealId ? meals.find(m => m.id === slot.mealId) : null)
-    .filter((m): m is Meal => m !== null);
+    .flatMap(slot => slot.mealIds) // Get all meal IDs
+    .map(id => meals.find(m => m.id === id)) // Resolve to Meal objects
+    .filter((m): m is Meal => !!m); // Remove nulls
 
   const [showChecked, setShowChecked] = useState(true);
 

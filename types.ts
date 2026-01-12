@@ -28,7 +28,7 @@ export interface Meal {
 
 export interface DaySlot {
   label: string; // M, T, W...
-  mealId: string | null;
+  mealIds: string[]; // Changed from single mealId to array
 }
 
 export type ViewMode = 'dashboard' | 'voting' | 'shop';

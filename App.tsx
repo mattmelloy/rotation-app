@@ -46,7 +46,7 @@ function App() {
       handleAddToTray,
       handleRemoveFromTray,
       handleSaveMeal,
-      handleDeleteMeal,
+      handleDeleteMeal: deleteMealHook,
       handleClearWeek,
       handleRemoveDefaults,
       handleShopToggle
@@ -107,6 +107,10 @@ function App() {
     setEditingMeal(null);
   };
 
+  const handleDeleteMeal = (id: string) => {
+    deleteMealHook(id);
+  };
+
   const handleVotingComplete = (selectedMeals: Meal[]) => {
     // 1. Increment votes for the selected meals
     const updatedMeals = meals.map(meal => {
@@ -119,15 +123,23 @@ function App() {
 
     // 2. Add them to the tray
     let currentSlots = [...weekSlots];
-    let selectedIndex = 0;
-
-    // Fill available slots
-    for (let i = 0; i < currentSlots.length; i++) {
-        if (currentSlots[i].mealId === null && selectedIndex < selectedMeals.length) {
-            currentSlots[i].mealId = selectedMeals[selectedIndex].id;
-            selectedIndex++;
+    
+    // Distribute meals across days that aren't full (limit 3 per day)
+    let mealIndex = 0;
+    
+    // Try 3 passes to fill slots evenly
+    for (let pass = 0; pass < 3; pass++) {
+        for (let i = 0; i < currentSlots.length && mealIndex < selectedMeals.length; i++) {
+            if (currentSlots[i].mealIds.length <= pass) {
+                 currentSlots[i] = {
+                     ...currentSlots[i],
+                     mealIds: [...currentSlots[i].mealIds, selectedMeals[mealIndex].id]
+                 };
+                 mealIndex++;
+            }
         }
     }
+    
     setWeekSlots(currentSlots);
     setViewMode('dashboard');
     showToast(`Added ${selectedMeals.length} family favorites!`);

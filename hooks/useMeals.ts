@@ -56,9 +56,15 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
     const weekKey = getStorageKey('week');
     const savedSlots = localStorage.getItem(weekKey);
     if (savedSlots) {
-      setWeekSlots(JSON.parse(savedSlots));
+      // Migration: Convert old single-meal format to new array format if needed
+      const loaded = JSON.parse(savedSlots);
+      const migrated = loaded.map((s: any) => ({
+        label: s.label,
+        mealIds: Array.isArray(s.mealIds) ? s.mealIds : (s.mealId ? [s.mealId] : [])
+      }));
+      setWeekSlots(migrated);
     } else {
-      const initialSlots = DAYS.map(d => ({ label: d, mealId: null }));
+      const initialSlots = DAYS.map(d => ({ label: d, mealIds: [] }));
       setWeekSlots(initialSlots);
     }
 
@@ -97,20 +103,39 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
 
   // --- Handlers ---
   const handleAddToTray = (meal: Meal) => {
-    const firstEmptyIndex = weekSlots.findIndex(s => s.mealId === null);
-    if (firstEmptyIndex !== -1) {
+    // Find first day with 0 meals, otherwise append to first day with < 3 meals
+    let targetIndex = weekSlots.findIndex(s => s.mealIds.length === 0);
+    
+    // If all days have at least one meal, look for days with < 3 meals
+    if (targetIndex === -1) {
+        targetIndex = weekSlots.findIndex(s => s.mealIds.length < 3);
+    }
+
+    if (targetIndex !== -1) {
       const newSlots = [...weekSlots];
-      newSlots[firstEmptyIndex] = { ...newSlots[firstEmptyIndex], mealId: meal.id };
+      newSlots[targetIndex] = { 
+          ...newSlots[targetIndex], 
+          mealIds: [...newSlots[targetIndex].mealIds, meal.id] 
+      };
       setWeekSlots(newSlots);
-      showToast(`Added ${meal.title} to ${newSlots[firstEmptyIndex].label}`, 'success');
+      showToast(`Added ${meal.title} to ${newSlots[targetIndex].label}`, 'success');
     } else {
-      showToast("Your week is full! Remove a meal first.", "error");
+      showToast("Your week is getting full! Try removing some meals.", "error");
     }
   };
 
-  const handleRemoveFromTray = (index: number) => {
+  const handleRemoveFromTray = (dayIndex: number, mealIdToRemove?: string) => {
     const newSlots = [...weekSlots];
-    newSlots[index] = { ...newSlots[index], mealId: null };
+    if (mealIdToRemove) {
+        // Remove specific meal
+        newSlots[dayIndex] = {
+            ...newSlots[dayIndex],
+            mealIds: newSlots[dayIndex].mealIds.filter(id => id !== mealIdToRemove)
+        };
+    } else {
+        // Clear entire day
+        newSlots[dayIndex] = { ...newSlots[dayIndex], mealIds: [] };
+    }
     setWeekSlots(newSlots);
   };
 
@@ -130,15 +155,18 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
 
   const handleDeleteMeal = (id: string) => {
     setMeals(prev => prev.filter(m => m.id !== id));
-    // Also remove from tray if present
-    setWeekSlots(prev => prev.map(slot => slot.mealId === id ? { ...slot, mealId: null } : slot));
+    // Also remove from tray if present (filter out the deleted ID)
+    setWeekSlots(prev => prev.map(slot => ({
+        ...slot,
+        mealIds: slot.mealIds.filter(mid => mid !== id)
+    })));
     showToast("Meal deleted", "info");
   };
 
   const handleClearWeek = () => {
     if (window.confirm("Start a new week? This will clear the current menu and reset all family vote counts.")) {
         // 1. Clear tray
-        setWeekSlots(DAYS.map(d => ({ label: d, mealId: null })));
+        setWeekSlots(DAYS.map(d => ({ label: d, mealIds: [] })));
         
         // 2. Reset votes on ALL meals
         setMeals(prevMeals => {
@@ -161,12 +189,11 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
           
           setMeals(prev => prev.filter(m => !defaultIds.includes(m.id)));
           
-          // Clean up tray
-          setWeekSlots(prev => prev.map(slot => 
-              slot.mealId && defaultIds.includes(slot.mealId) 
-                  ? { ...slot, mealId: null } 
-                  : slot
-          ));
+          // Clean up tray by filtering out default IDs
+          setWeekSlots(prev => prev.map(slot => ({
+              ...slot,
+              mealIds: slot.mealIds.filter(mid => !defaultIds.includes(mid))
+          })));
 
           showToast("Example meals removed", "info");
           setIsUserMenuOpen(false);

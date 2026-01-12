@@ -5,7 +5,7 @@ import { X, ShoppingBag, Trash2, UserCircle } from 'lucide-react';
 interface WeekTrayProps {
   slots: DaySlot[];
   meals: Meal[];
-  onRemove: (index: number) => void;
+  onRemove: (dayIndex: number, mealId?: string) => void;
   onShopToggle: () => void;
   isShopMode: boolean;
   onClear: () => void;
@@ -21,9 +21,9 @@ const WeekTray: React.FC<WeekTrayProps> = ({
   onClear,
   onUserClick
 }) => {
-  // Calculate fill percentage for a subtle progress bar visual
-  const filledCount = slots.filter(s => s.mealId).length;
-  const progress = (filledCount / 7) * 100;
+  // Calculate fill percentage - considering a day "filled" if it has at least one meal
+  const filledDays = slots.filter(s => s.mealIds && s.mealIds.length > 0).length;
+  const progress = (filledDays / 7) * 100;
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm pt-3 pb-2 px-1 transition-all duration-300">
@@ -66,32 +66,54 @@ const WeekTray: React.FC<WeekTrayProps> = ({
         </div>
 
         <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
-          {slots.map((slot, index) => {
-            const meal = slot.mealId ? meals.find(m => m.id === slot.mealId) : null;
+          {slots.map((slot, dayIndex) => {
+            const dayMeals = slot.mealIds
+              .map(id => meals.find(m => m.id === id))
+              .filter((m): m is Meal => !!m);
+
+            const hasMeals = dayMeals.length > 0;
+            const primaryMeal = dayMeals[0];
+            const extraCount = dayMeals.length - 1;
             
             return (
-              <div key={index} className="flex flex-col items-center min-w-0">
+              <div key={dayIndex} className="flex flex-col items-center min-w-0 group/day relative">
                 <span className="text-[10px] font-bold text-gray-400 mb-0.5">{slot.label}</span>
                 
-                {/* Image Container - Fixed Dimensions to ensure circular shape and prevent overlap */}
-                <div className="relative group h-9 w-9 sm:h-10 sm:w-10 mb-1 flex-shrink-0">
-                  {meal ? (
-                    <div className="w-full h-full rounded-full border border-brand-500 p-0.5 relative overflow-hidden shadow-sm animate-in zoom-in duration-200 bg-white">
-                       <img 
-                        src={meal.image} 
-                        alt={meal.title} 
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                      {!isShopMode && (
-                        <button 
-                          onClick={() => onRemove(index)}
-                          className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
-                          title="Remove"
+                {/* Image Container */}
+                <div className="relative h-9 w-9 sm:h-10 sm:w-10 mb-1 flex-shrink-0">
+                  {hasMeals ? (
+                    <>
+                      {/* Stacked effect for multiple meals */}
+                      {dayMeals.slice(0, 3).map((meal, idx) => (
+                        <div 
+                            key={meal.id}
+                            className="absolute rounded-full border border-white shadow-sm overflow-hidden bg-white transition-all hover:z-10 hover:scale-110"
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                top: idx * 2,
+                                left: idx * 2,
+                                zIndex: 3 - idx,
+                                transform: extraCount > 0 ? `scale(${1 - (idx * 0.1)})` : 'none'
+                            }}
                         >
-                          <X size={14} className="text-white" />
-                        </button>
-                      )}
-                    </div>
+                           <img 
+                            src={meal.image} 
+                            alt={meal.title} 
+                            className="w-full h-full object-cover"
+                          />
+                           {!isShopMode && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); onRemove(dayIndex, meal.id); }}
+                              className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                              title="Remove"
+                            >
+                              <X size={12} className="text-white" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </>
                   ) : (
                     <div className="w-full h-full rounded-full border border-dashed border-gray-300 flex items-center justify-center bg-gray-50/50">
                       <div className="w-1 h-1 rounded-full bg-gray-300"></div>
@@ -99,12 +121,17 @@ const WeekTray: React.FC<WeekTrayProps> = ({
                   )}
                 </div>
                 
-                {/* Meal Title - Constrained height and proper truncation */}
+                {/* Meal Title / Count */}
                 <div className="h-6 w-full px-0.5 flex items-start justify-center">
-                    {meal ? (
-                        <p className="text-[8px] sm:text-[9px] leading-[1.1] text-center text-gray-700 font-medium line-clamp-2 w-full break-words overflow-hidden">
-                            {meal.title}
-                        </p>
+                    {hasMeals ? (
+                        <div className="text-center">
+                            <p className="text-[8px] sm:text-[9px] leading-[1.1] text-gray-700 font-medium line-clamp-2 w-full break-words overflow-hidden">
+                                {primaryMeal.title}
+                            </p>
+                            {extraCount > 0 && (
+                                <p className="text-[8px] text-gray-400 font-bold">+{extraCount} more</p>
+                            )}
+                        </div>
                     ) : (
                         <span className="text-[10px] text-gray-200 select-none">-</span>
                     )}
