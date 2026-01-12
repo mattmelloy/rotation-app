@@ -87,7 +87,7 @@ const MealCard: React.FC<MealCardProps> = ({ meal, tier, onAdd, onView, disabled
 
         {/* Days Ago Badge */}
         <div className="absolute bottom-3 left-3 text-white text-xs font-medium px-2 py-0.5 bg-black/30 backdrop-blur-sm rounded-md">
-           {Math.floor((Date.now() - meal.lastCooked) / 86400000)}d ago
+           {meal.lastCooked === 0 ? 'Never' : `${Math.floor((Date.now() - meal.lastCooked) / 86400000)}d ago`}
         </div>
       </button>
 

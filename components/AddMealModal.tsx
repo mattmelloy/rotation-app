@@ -127,11 +127,11 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
         } else {
             if (selectedTier === 'high') newLastCooked = Date.now();
             if (selectedTier === 'medium') newLastCooked = Date.now() - (21 * DAY_MS);
-            if (selectedTier === 'low') newLastCooked = Date.now() - (70 * DAY_MS);
+            if (selectedTier === 'low') newLastCooked = 0;
         }
     } else {
         if (selectedTier === 'medium') newLastCooked = Date.now() - (21 * DAY_MS);
-        if (selectedTier === 'low') newLastCooked = Date.now() - (70 * DAY_MS);
+        if (selectedTier === 'low') newLastCooked = 0; // Never cooked
     }
 
     const mealToSave: Meal = {
