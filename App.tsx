@@ -81,6 +81,7 @@ function App() {
   const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
   const [selectingDayForMeal, setSelectingDayForMeal] = useState<Meal | null>(null);
   const [viewingDayIndex, setViewingDayIndex] = useState<number | null>(null);
+  const [showLanding, setShowLanding] = useState(false);
   
   // --- Drag and Drop State ---
   const [activeMeal, setActiveMeal] = useState<Meal | null>(null);
@@ -313,6 +314,17 @@ function App() {
     );
   }
 
+  // Show landing page when logged-in user clicks logo
+  if (showLanding && (user || isGuest)) {
+    return (
+      <LandingPage 
+        onGetStarted={() => setShowLanding(false)}
+        onContinueAsGuest={() => setShowLanding(false)}
+        isLoggedIn={true}
+      />
+    );
+  }
+
   if (viewMode === 'voting') {
     return (
         <FamilyVoting 
@@ -356,6 +368,7 @@ function App() {
           onDayClick={(index) => setViewingDayIndex(index)}
           isDark={isDark}
           onToggleTheme={toggleTheme}
+          onLogoClick={() => setShowLanding(true)}
         />
 
         {/* Main Content Area */}

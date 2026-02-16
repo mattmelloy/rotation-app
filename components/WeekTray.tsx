@@ -16,6 +16,7 @@ interface WeekTrayProps {
   onDayClick: (dayIndex: number) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  onLogoClick?: () => void;
 }
 
 // Droppable day circle component - Minimal Apple-like design
@@ -137,7 +138,8 @@ const WeekTray: React.FC<WeekTrayProps> = ({
   onAIChatToggle,
   onDayClick,
   isDark = false,
-  onToggleTheme
+  onToggleTheme,
+  onLogoClick
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -158,10 +160,27 @@ const WeekTray: React.FC<WeekTrayProps> = ({
         ${isExpanded ? 'h-[120px]' : 'h-[60px]'}
       `}
     >
-      <div className="max-w-4xl mx-auto h-full flex flex-col justify-center px-4">
+      {/* Full-width container for logo alignment with LandingPage */}
+      <div className="max-w-7xl mx-auto h-full flex flex-col justify-center px-4 sm:px-6 lg:px-8">
         {/* Main Row - Always visible */}
         <div className="flex items-center justify-between">
-          {/* Left: Day Circles */}
+          {/* Left: Branding Logo - positioned to match LandingPage */}
+          {onLogoClick && (
+            <button 
+              onClick={onLogoClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0"
+            >
+              <motion.div 
+                whileHover={{ rotate: 15 }}
+                className="w-8 h-8 bg-primary-100 dark:bg-primary-900/50 rounded-lg flex items-center justify-center text-lg"
+              >
+                🍳
+              </motion.div>
+              <span className="hidden sm:block font-display font-bold text-xl text-primary">The Rotation</span>
+            </button>
+          )}
+          
+          {/* Center: Day Circles */}
           <div className="flex items-center gap-1 sm:gap-2">
             {slots.map((slot, dayIndex) => {
               const dayMeals = slot.mealIds

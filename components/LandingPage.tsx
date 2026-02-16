@@ -15,6 +15,7 @@ import {
 interface LandingPageProps {
   onGetStarted: () => void;
   onContinueAsGuest: () => void;
+  isLoggedIn?: boolean;
 }
 
 // Animation variants
@@ -32,7 +33,7 @@ const staggerContainer = {
   }
 };
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGuest }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGuest, isLoggedIn = false }) => {
   return (
     <div className="min-h-screen bg-base">
       {/* Navigation / Header */}
@@ -54,20 +55,33 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
               <span className="font-display font-bold text-xl text-primary">The Rotation</span>
             </div>
             <div className="flex items-center gap-4">
-              <button 
-                onClick={onContinueAsGuest}
-                className="hidden sm:block text-sm font-medium text-secondary hover:text-primary transition-colors"
-              >
-                Guest Mode
-              </button>
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onGetStarted}
-                className="btn-primary"
-              >
-                Get Started
-              </motion.button>
+              {isLoggedIn ? (
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onGetStarted}
+                  className="btn-primary"
+                >
+                  Back to Meals
+                </motion.button>
+              ) : (
+                <>
+                  <button 
+                    onClick={onContinueAsGuest}
+                    className="hidden sm:block text-sm font-medium text-secondary hover:text-primary transition-colors"
+                  >
+                    Guest Mode
+                  </button>
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onGetStarted}
+                    className="btn-primary"
+                  >
+                    Get Started
+                  </motion.button>
+                </>
+              )}
             </div>
           </div>
         </div>
