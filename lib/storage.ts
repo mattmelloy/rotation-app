@@ -46,15 +46,3 @@ export async function setItem(key: string, value: string): Promise<void> {
     request.onsuccess = () => resolve();
   });
 }
-
-export async function removeItem(key: string): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(key);
-        
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve();
-    });
-}

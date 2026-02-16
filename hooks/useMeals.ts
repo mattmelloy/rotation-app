@@ -291,6 +291,13 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
     }
   };
 
+  // Update meal tier (for drag-and-drop tier reassignment)
+  const handleUpdateMealTier = (mealId: string, newTier: import('../types').Tier) => {
+    setMeals(prev => prev.map(m => 
+      m.id === mealId ? { ...m, tier: newTier } : m
+    ));
+  };
+
   return {
       meals, setMeals,
       weekSlots, setWeekSlots,
@@ -303,6 +310,7 @@ export function useMeals({ showToast, isGuest, userId }: UseMealsParams) {
       handleClearWeek,
       handleRemoveDefaults,
       handleShopToggle,
-      handleCleanupStorage
+      handleCleanupStorage,
+      handleUpdateMealTier
   };
 }

@@ -21,12 +21,6 @@ export const isSupabaseConfigured = () => {
     return isConfigured;
 };
 
-export const isHardcoded = () => {
-    // Always false - we only support environment variables now
-    return false;
-};
-
-// REMOVED: saveSupabaseConfig and clearSupabaseConfig
+// REMOVED: saveSupabaseConfig, clearSupabaseConfig, and isHardcoded
 // Storing credentials in localStorage is a security risk (XSS vulnerability)
 // Configure Supabase via environment variables only
-    // Returns true if configured via Env Var or Code (not LocalStorage)

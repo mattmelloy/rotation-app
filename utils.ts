@@ -2,11 +2,48 @@ import { Tier, Effort, Meal } from './types';
 
 const DAY_MS = 86400000;
 
-export const getTier = (lastCookedTimestamp: number): Tier => {
+// Tier display configuration
+export const TIER_CONFIG = {
+  favorites: {
+    icon: 'Favorites',
+    label: 'Favorites',
+    description: 'Weekly go-to meals',
+    bgClass: 'bg-amber-50/50 dark:bg-amber-950/20',
+    borderClass: 'border-l-4 border-amber-400',
+    badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+  },
+  regulars: {
+    icon: 'Regulars',
+    label: 'Regulars',
+    description: 'Monthly rotation meals',
+    bgClass: 'bg-slate-50/50 dark:bg-slate-950/20',
+    borderClass: 'border-l-4 border-slate-400',
+    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-900/50 dark:text-slate-300',
+  },
+  occasional: {
+    icon: 'Occasional',
+    label: 'Occasional',
+    description: 'Special occasions, experiments',
+    bgClass: 'bg-indigo-50/50 dark:bg-indigo-950/20',
+    borderClass: 'border-l-4 border-indigo-400',
+    badgeClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
+  },
+} as const;
+
+// Migration helper: Convert old lastCooked-based tier to new user-selected tier
+export const migrateTierFromLastCooked = (lastCookedTimestamp: number): Tier => {
   const daysAgo = (Date.now() - lastCookedTimestamp) / DAY_MS;
-  if (daysAgo <= 14) return 'high';
-  if (daysAgo <= 60) return 'medium';
-  return 'low';
+  if (daysAgo <= 14) return 'favorites';
+  if (daysAgo <= 60) return 'regulars';
+  return 'occasional';
+};
+
+// Get tier from meal (with fallback for migration)
+export const getMealTier = (meal: Meal): Tier => {
+  // If meal has tier field, use it
+  if (meal.tier) return meal.tier;
+  // Fallback to migration logic for backward compatibility
+  return migrateTierFromLastCooked(meal.lastCooked);
 };
 
 export const getEffortColor = (effort: Effort): string => {

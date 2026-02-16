@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info';
@@ -18,29 +19,41 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   }, [onClose]);
 
   const styles = {
-    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800'
+    success: 'bg-secondary-50 dark:bg-secondary-950/50 border-secondary-200 dark:border-secondary-800 text-secondary-800 dark:text-secondary-200',
+    error: 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200',
+    info: 'bg-primary-50 dark:bg-primary-950/50 border-primary-200 dark:border-primary-800 text-primary-800 dark:text-primary-200'
   };
 
   const icons = {
-    success: <CheckCircle size={18} className="text-emerald-500" />,
+    success: <CheckCircle size={18} className="text-secondary-500" />,
     error: <AlertCircle size={18} className="text-red-500" />,
-    info: <AlertCircle size={18} className="text-blue-500" />
+    info: <AlertCircle size={18} className="text-primary-500" />
   };
 
   return (
-    <div className={`
-      fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-[100]
-      flex items-center gap-3 p-4 rounded-xl shadow-lg border animate-in slide-in-from-top-5 duration-300
-      ${styles[type]}
-    `}>
+    <motion.div 
+      initial={{ opacity: 0, y: -50, x: '-50%' }}
+      animate={{ opacity: 1, y: 0, x: '-50%' }}
+      exit={{ opacity: 0, y: -50, x: '-50%' }}
+      transition={{ type: "spring", damping: 20, stiffness: 300 }}
+      className={`
+        fixed top-4 left-1/2 z-[100]
+        flex items-center gap-3 p-4 rounded-xl shadow-lg border
+        w-[calc(100%-2rem)] max-w-md
+        ${styles[type]}
+      `}
+    >
       <div className="flex-none">{icons[type]}</div>
       <p className="flex-1 text-sm font-medium">{message}</p>
-      <button onClick={onClose} className="p-1 hover:bg-black/5 rounded-full transition-colors">
+      <motion.button 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={onClose} 
+        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
+      >
         <X size={14} />
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
 };
 

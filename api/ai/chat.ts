@@ -1,17 +1,30 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
+import { aiRateLimiter } from '../_utils/rateLimit';
+import { validateMessages } from '../_utils/validation';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Rate limiting check
+  const rateCheck = aiRateLimiter(req, res);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({ 
+      error: 'Too many requests', 
+      message: 'Please wait a moment before sending more messages.',
+      retryAfter: Math.ceil((rateCheck.resetTime - Date.now()) / 1000)
+    });
+  }
+
   try {
-    const { messages } = req.body;
-    
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'messages array is required' });
+    // Input validation and sanitization
+    const validation = validateMessages(req.body.messages);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
     }
+    const messages = validation.sanitizedValue;
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
