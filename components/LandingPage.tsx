@@ -41,7 +41,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="fixed w-full z-50 bg-surface/80 backdrop-blur-md border-b border-border"
+        className="fixed w-full z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-md border-b border-neutral-200/50 dark:border-neutral-800/50"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -88,8 +88,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
       </motion.nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+      <section className="pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden relative">
+        {/* Hero Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=2000&q=80"
+            alt="Fresh ingredients and cooking"
+            className="w-full h-full object-cover"
+          />
+          {/* Subtle overlay - darker at top/bottom for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Background decoration */}
           <div className="absolute inset-0 -z-10 overflow-hidden">
             <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-200/30 dark:bg-primary-800/20 rounded-full blur-3xl" />
@@ -101,16 +112,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="text-5xl sm:text-6xl lg:text-7xl font-display font-extrabold text-primary tracking-tight mb-8"
+              className="text-5xl sm:text-6xl lg:text-7xl font-display font-extrabold text-white tracking-tight mb-8 drop-shadow-lg"
             >
               Simplify your <br/>
-              <span className="text-gradient">family meals</span>.
+              <span className="text-primary-300">family meals</span>.
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-xl text-secondary mb-10 max-w-2xl mx-auto leading-relaxed"
+              className="text-xl text-white/90 mb-10 max-w-2xl mx-auto leading-relaxed drop-shadow"
             >
               Plan your week, shop efficiently, and build a recipe library your family loves. The only meal planner you'll actually stick with.
             </motion.p>
@@ -124,7 +135,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onGetStarted}
-                className="w-full sm:w-auto px-8 py-4 bg-primary-600 text-white rounded-xl font-bold text-lg hover:bg-primary-700 shadow-xl shadow-primary-600/25 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-4 bg-primary-500 text-white rounded-xl font-bold text-lg hover:bg-primary-600 shadow-xl shadow-primary-600/25 transition-all flex items-center justify-center gap-2"
               >
                 Start Planning Free
                 <ArrowRight size={20} />
@@ -133,7 +144,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onContinueAsGuest}
-                className="w-full sm:w-auto px-8 py-4 bg-surface text-secondary rounded-xl font-bold text-lg border border-border hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all"
+                className="w-full sm:w-auto px-8 py-4 bg-white/20 backdrop-blur-sm text-white rounded-xl font-bold text-lg border border-white/30 hover:bg-white/30 transition-all"
               >
                 Try as Guest
               </motion.button>
@@ -142,7 +153,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="mt-6 text-sm text-muted"
+              className="mt-6 text-sm text-white/70"
             >
               No credit card required  Works on all devices
             </motion.p>
@@ -243,32 +254,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onContinueAsGue
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-neutral-100 dark:bg-neutral-800 rounded-3xl p-8 aspect-square flex items-center justify-center relative overflow-hidden"
+              className="relative overflow-hidden rounded-3xl bg-neutral-100 dark:bg-neutral-800"
             >
-               {/* Abstract representation of the app interface */}
-               <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-surface dark:from-primary-950/50 dark:to-neutral-900 opacity-50"></div>
-               <motion.div 
-                 whileHover={{ rotate: 0 }}
-                 className="w-64 bg-surface rounded-2xl shadow-xl p-4 rotate-3 transform transition-transform duration-500 z-10 border border-border"
-               >
-                  <div className="h-4 w-32 bg-neutral-100 dark:bg-neutral-800 rounded mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-20 bg-primary-50 dark:bg-primary-950/50 rounded-xl border border-primary-200 dark:border-primary-800"></div>
-                    <div className="h-20 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-border"></div>
-                    <div className="h-20 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-border"></div>
-                  </div>
-               </motion.div>
-               <motion.div 
-                 whileHover={{ rotate: -3 }}
-                 className="w-64 bg-surface rounded-2xl shadow-xl p-4 -rotate-6 absolute transform transition-transform duration-500 border border-border scale-90 -z-0"
-               >
-                  <div className="h-4 w-24 bg-neutral-100 dark:bg-neutral-800 rounded mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-8 bg-neutral-50 dark:bg-neutral-900 rounded-lg w-full"></div>
-                    <div className="h-8 bg-neutral-50 dark:bg-neutral-900 rounded-lg w-3/4"></div>
-                    <div className="h-8 bg-neutral-50 dark:bg-neutral-900 rounded-lg w-5/6"></div>
-                  </div>
-               </motion.div>
+              <img 
+                src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800"
+                alt="Woman using phone to plan meals"
+                className="w-full h-auto object-cover rounded-3xl shadow-2xl"
+                loading="lazy"
+              />
+              {/* Subtle gradient overlay at bottom for text if needed */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-3xl" />
             </motion.div>
           </div>
         </div>
