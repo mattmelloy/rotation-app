@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { getMe, fetchUserData, saveUserData, isAuthenticated, signOut, AuthUser } from '../lib/api';
 import { Meal, DaySlot } from '../types';
 import { ToastType } from '../components/Toast';
 
@@ -14,34 +14,27 @@ export function useCloudSync(
   safeSetItem: (key: string, value: string) => void,
   isGuest: boolean
 ) {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isCloudSyncInitialized, setIsCloudSyncInitialized] = useState(false);
   const isFetchingRef = useRef(false);
 
-  // 1. Check Auth Status on Mount & Listen for Changes
+  // 1. Check Auth Status on Mount
   useEffect(() => {
-    if (isSupabaseConfigured()) {
-        supabase?.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchCloudData(session.user.id);
-            }
-            setIsLoading(false);
-        });
-
-        const { data: { subscription } } = supabase!.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchCloudData(session.user.id);
-            }
-            setIsLoading(false);
-        });
-
-        return () => subscription.unsubscribe();
-    } else {
+    if (isAuthenticated()) {
+      getMe().then(({ data, error }) => {
+        if (data?.user) {
+          setUser(data.user);
+          fetchCloudData(data.user.id);
+        } else {
+          // Token expired or invalid — clear it
+          signOut();
+        }
         setIsLoading(false);
+      });
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
@@ -52,11 +45,7 @@ export function useCloudSync(
     setIsCloudSyncInitialized(false);
 
     try {
-        const { data, error } = await supabase!
-            .from('user_data')
-            .select('meals, week_slots, shopping_list')
-            .eq('user_id', userId)
-            .single();
+        const { data, error } = await fetchUserData();
         
         if (data) {
              // Cloud data wins - completely replace local state
@@ -83,8 +72,7 @@ export function useCloudSync(
              } else {
                  setShopChecked([]);
              }
-        } else if (error && error.code === 'PGRST116') {
-            // No data exists for this user yet - that's OK, start fresh
+        } else if (error) {
             console.log("No cloud data found for user, starting fresh");
         }
     } catch (err) {
@@ -99,21 +87,18 @@ export function useCloudSync(
   };
 
   // 3. Save Data to Cloud
-  // Note: This replaces the entire row. In v2, consider granular updates or optimistic concurrency control.
   const saveToCloud = useCallback(async (currentMeals: Meal[], currentSlots: DaySlot[], currentShop: string[]) => {
-    if (!user || !isSupabaseConfigured() || isGuest || !isCloudSyncInitialized) return;
+    if (!user || isGuest || !isCloudSyncInitialized) return;
     
     try {
-        const { error } = await supabase!.from('user_data').upsert({
-            user_id: user.id,
+        const { error } = await saveUserData({
             meals: currentMeals,
             week_slots: currentSlots,
             shopping_list: currentShop,
-            updated_at: new Date().toISOString()
         });
 
-        if (error) throw error;
-        console.log("Synced to Supabase successfully");
+        if (error) throw new Error(error);
+        console.log("Synced to cloud successfully");
     } catch (err: any) {
         console.error("Cloud save failed", err);
         showToast(`Sync failed: ${err.message}`, "error");

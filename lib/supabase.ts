@@ -1,32 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
+// Database client configuration
+// This module provides auth and data helper functions
+// that wrap the API client for backward compatibility.
+
+import { getToken, isAuthenticated } from './api';
 
 // --- CONFIGURATION ---
-// Only environment variables are supported in production for security
-// Required: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
-
-// Read from Environment Variables (Vite uses VITE_ prefix)
-const ENV_URL = (import.meta as any).env?.VITE_SUPABASE_URL;
-const ENV_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-
-// Validate required environment variables at startup
-const isConfigured = !!(ENV_URL && ENV_KEY);
-
-// Initialize Client only if configured, otherwise use null placeholder
-// The isSupabaseConfigured() function will return false if not set up
-export const supabase = isConfigured 
-  ? createClient(ENV_URL, ENV_KEY)
-  : null;
+// The app now uses Neon DB via API routes instead of direct Supabase client.
+// Auth is handled via JWT tokens stored in localStorage.
+// Database access goes through /api/data routes.
 
 export const isSupabaseConfigured = () => {
-    return isConfigured;
+    // Always true — configuration is handled server-side via DATABASE_URL
+    return true;
 };
 
 export const isHardcoded = () => {
-    // Always false - we only support environment variables now
-    return false;
+    // Always true — the connection is configured via environment variables on the server
+    return true;
 };
 
-// REMOVED: saveSupabaseConfig and clearSupabaseConfig
-// Storing credentials in localStorage is a security risk (XSS vulnerability)
-// Configure Supabase via environment variables only
-    // Returns true if configured via Env Var or Code (not LocalStorage)
+// Placeholder for backward compatibility — the supabase object is no longer used directly
+// All code should migrate to using lib/api.ts functions instead
+export const supabase = null;

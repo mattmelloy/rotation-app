@@ -13,6 +13,9 @@ dotenv.config({ path: join(__dirname, '../.env') });
 import express from 'express';
 import cors from 'cors';
 import aiRouter from './routes/ai.js';
+import authRouter from './routes/auth.js';
+import dataRouter from './routes/data.js';
+import { initializeDatabase } from './db.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +38,8 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/ai', aiRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/data', dataRouter);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -45,7 +50,18 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📡 Frontend CORS allowed from: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-});
+// Initialize database and start server
+async function start() {
+  try {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`📡 Frontend CORS allowed from: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    });
+  } catch (err) {
+    console.error('❌ Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+start();

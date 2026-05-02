@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { signUp, signIn } from '../lib/api';
 import { X, Mail, Lock, Loader2, LogIn, UserPlus } from 'lucide-react';
 import { ToastType } from './Toast';
 
@@ -26,21 +26,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onShowToast }) =
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (error) throw error;
+        const { data, error } = await signUp(email, password);
+        if (error) throw new Error(error);
         onShowToast("Account created! You are now logged in.", "success");
-        onClose();
+        // Force page reload to re-initialize auth state
+        window.location.reload();
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        const { data, error } = await signIn(email, password);
+        if (error) throw new Error(error);
         onShowToast("Welcome back!", "success");
-        onClose();
+        // Force page reload to re-initialize auth state
+        window.location.reload();
       }
     } catch (err: any) {
       onShowToast(err.message || "Authentication failed", "error");

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Users, Search, X, LogOut, Trash2, UserCircle, Database, ChevronRight, Loader2 } from 'lucide-react';
 import { Meal, ViewMode, DAYS } from './types';
 import { getTier } from './utils';
-import { supabase } from './lib/supabase';
+import { signOut as apiSignOut } from './lib/api';
 
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -92,11 +92,12 @@ function App() {
       handleSaveMeal(meal, editingMeal, setEditingMeal);
   };
 
-  const handleLogout = async () => {
-      await supabase?.auth.signOut();
+  const handleLogout = () => {
+      apiSignOut();
       setUser(null);
       showToast("Logged out successfully");
       setIsUserMenuOpen(false);
+      window.location.reload();
   };
 
   const openAddModal = () => {

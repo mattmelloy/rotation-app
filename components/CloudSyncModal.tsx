@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, isHardcoded, saveSupabaseConfig, clearSupabaseConfig } from '../lib/supabase';
-import { X, Cloud, LogOut, Settings, Loader2, Save, Lock } from 'lucide-react';
+import { getMe, signUp, signIn, signOut as apiSignOut, isAuthenticated, AuthUser } from '../lib/api';
+import { X, Cloud, LogOut, Loader2, Lock } from 'lucide-react';
 import { ToastType } from './Toast';
 
 interface CloudSyncModalProps {
@@ -11,44 +11,26 @@ interface CloudSyncModalProps {
 
 const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose, onShowToast }) => {
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   
   // Auth Form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
-  // Config Form
-  const [url, setUrl] = useState('');
-  const [key, setKey] = useState('');
-  const [showConfig, setShowConfig] = useState(!isSupabaseConfigured());
-
-  // Check if we are using hardcoded keys (env vars or constants)
-  const isLocked = isHardcoded();
-
   useEffect(() => {
     if (isOpen) {
         checkUser();
-        // Pre-fill form with local storage if available and not locked
-        if (!isLocked && localStorage.getItem('supabase_url')) {
-            setUrl(localStorage.getItem('supabase_url') || '');
-            setKey(localStorage.getItem('supabase_key') || '');
-        }
     }
   }, [isOpen]);
 
   const checkUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    setUser(data.user);
-  };
-
-  const handleConfigSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url || !key) {
-        onShowToast("Please enter both URL and Key", 'error');
-        return;
+    if (!isAuthenticated()) {
+      setUser(null);
+      return;
     }
-    saveSupabaseConfig(url, key);
+    const { data } = await getMe();
+    setUser(data?.user ?? null);
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -56,16 +38,20 @@ const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose, onShow
     setLoading(true);
     try {
         if (isSignUp) {
-            const { error } = await supabase.auth.signUp({ email, password });
-            if (error) throw error;
+            const { error } = await signUp(email, password);
+            if (error) throw new Error(error);
             onShowToast("Account created! You can now log in.", 'success');
             setIsSignUp(false);
+            // Reload to re-init auth state
+            window.location.reload();
         } else {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            setUser(data.user);
+            const { data, error } = await signIn(email, password);
+            if (error) throw new Error(error);
+            setUser(data?.user ?? null);
             onShowToast("Logged in successfully!", 'success');
             onClose();
+            // Reload to re-init auth state  
+            window.location.reload();
         }
     } catch (err: any) {
         onShowToast(err.message, 'error');
@@ -75,9 +61,10 @@ const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose, onShow
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    apiSignOut();
     setUser(null);
     onShowToast("Logged out", 'info');
+    window.location.reload();
   };
 
   if (!isOpen) return null;
@@ -107,46 +94,8 @@ const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose, onShow
         {/* Content */}
         <div className="p-6 -mt-4 bg-white rounded-t-2xl">
             
-            {/* 1. Configuration Check */}
-            {(!isSupabaseConfigured() || showConfig) && !isLocked ? (
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-bold text-gray-800">Connection Setup</h3>
-                        {isSupabaseConfigured() && (
-                            <button onClick={() => setShowConfig(false)} className="text-xs text-gray-500 hover:text-black">Cancel</button>
-                        )}
-                    </div>
-                    <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                        Enter your Supabase Project URL and Anon Key.
-                    </p>
-                    <form onSubmit={handleConfigSave} className="space-y-3">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Project URL</label>
-                            <input 
-                                type="text" 
-                                value={url} 
-                                onChange={e => setUrl(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                                placeholder="https://..."
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Anon Key</label>
-                            <input 
-                                type="password" 
-                                value={key} 
-                                onChange={e => setKey(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                                placeholder="eyJhbGci..."
-                            />
-                        </div>
-                        <button type="submit" className="w-full bg-black text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-gray-800">
-                            <Save size={16} /> Save Connection
-                        </button>
-                    </form>
-                </div>
-            ) : user ? (
-                /* 2. Logged In State */
+            {user ? (
+                /* Logged In State */
                 <div className="text-center py-4">
                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Cloud size={32} />
@@ -162,31 +111,19 @@ const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose, onShow
                             <LogOut size={16} /> Sign Out
                         </button>
                         
-                        {!isLocked && (
-                            <button 
-                                onClick={() => setShowConfig(true)}
-                                className="text-xs text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1"
-                            >
-                                <Settings size={12} /> Connection Settings
-                            </button>
-                        )}
-                        {isLocked && (
-                            <div className="text-xs text-brand-600 bg-brand-50 py-1 px-2 rounded-md flex items-center justify-center gap-1">
-                                <Lock size={10} /> Connected via Code
-                            </div>
-                        )}
+                        <div className="text-xs text-brand-600 bg-brand-50 py-1 px-2 rounded-md flex items-center justify-center gap-1">
+                            <Lock size={10} /> Connected via Cloud
+                        </div>
                     </div>
                 </div>
             ) : (
-                /* 3. Login / Signup Form */
+                /* Login / Signup Form */
                 <form onSubmit={handleAuth} className="space-y-4">
                     <div className="flex justify-between items-center mb-2">
                          <h3 className="font-bold text-gray-800">{isSignUp ? 'Create Account' : 'Welcome Back'}</h3>
-                         {isLocked && (
-                             <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                                <Lock size={8} /> Connected
-                             </span>
-                         )}
+                         <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                            <Lock size={8} /> Connected
+                         </span>
                     </div>
                    
                     <div>
@@ -228,16 +165,6 @@ const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose, onShow
                         >
                             {isSignUp ? 'Already have an account? Log In' : 'Need an account? Sign Up'}
                         </button>
-                        
-                        {!isLocked && (
-                            <button 
-                                type="button" 
-                                onClick={() => setShowConfig(true)}
-                                className="text-xs text-gray-400 hover:text-gray-600"
-                            >
-                                <Settings size={14} />
-                            </button>
-                        )}
                     </div>
                 </form>
             )}
