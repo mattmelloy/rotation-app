@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from '@google/genai';
+import { strictRateLimiter } from '../_utils/rateLimit';
+import { validateImageInput } from '../_utils/validation';
 
 const recipeSchema = {
   type: Type.OBJECT,
@@ -30,12 +32,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Rate limiting check (stricter for image processing - more expensive)
+  const rateCheck = strictRateLimiter(req, res);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({ 
+      error: 'Too many requests', 
+      message: 'Please wait before processing more images.',
+      retryAfter: Math.ceil((rateCheck.resetTime - Date.now()) / 1000)
+    });
+  }
+
   try {
-    const { base64Image, includeThermomix = false } = req.body;
-    
-    if (!base64Image) {
-      return res.status(400).json({ error: 'base64Image is required' });
+    // Input validation and sanitization
+    const validation = validateImageInput({
+      imageBase64: req.body.base64Image,
+      mimeType: req.body.mimeType
+    });
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
     }
+    
+    const { imageBase64, mimeType } = validation.sanitizedValue;
+    const includeThermomix = Boolean(req.body.includeThermomix);
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -54,8 +72,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         parts: [
           {
             inlineData: {
-              mimeType: 'image/jpeg',
-              data: base64Image
+              mimeType: mimeType,
+              data: imageBase64
             }
           },
           {

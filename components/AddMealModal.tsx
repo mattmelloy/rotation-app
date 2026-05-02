@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Camera, Link as LinkIcon, Upload, Loader2, ChefHat, Trash2, FileText, Zap } from 'lucide-react';
-import { determineImage, determineProtein, getTier, compressImage } from '../utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Sparkles, Camera, Link as LinkIcon, Upload, Loader2, ChefHat, Trash2, Zap } from 'lucide-react';
+import { determineImage, determineProtein, getMealTier, TIER_CONFIG, compressImage } from '../utils';
 import { Meal, Effort, Tier, SourceType } from '../types';
 import { parseRecipeFromImage, generateRecipeFromText, editRecipeWithAI, generateThermomixMethod } from '../ai';
 import { ToastType } from './Toast';
@@ -45,7 +46,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   
   // Tier Management
-  const [selectedTier, setSelectedTier] = useState<Tier>('high');
+  const [selectedTier, setSelectedTier] = useState<Tier>('regulars');
 
   const mainFileInputRef = useRef<HTMLInputElement>(null);
   const scanFileInputRef = useRef<HTMLInputElement>(null);
@@ -63,7 +64,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
       setSourceType(initialMeal.sourceType || 'manual');
       setSourceImage(initialMeal.sourceImage || null);
       setTags(initialMeal.tags || []);
-      setSelectedTier(getTier(initialMeal.lastCooked));
+      setSelectedTier(getMealTier(initialMeal));
       setActiveTab('quick');
     } else if (isOpen && !initialMeal) {
       resetForm();
@@ -85,7 +86,7 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
     setSourceImage(null);
     setTags([]);
     setTagInput('');
-    setSelectedTier('high');
+    setSelectedTier('regulars');
     setActiveTab('quick');
     setLoading(false);
     setUseThermomix(false);
@@ -117,27 +118,11 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
     e.preventDefault();
     if (!title.trim()) return;
 
-    let newLastCooked = Date.now();
-    const DAY_MS = 86400000;
-
-    if (initialMeal) {
-        const currentTier = getTier(initialMeal.lastCooked);
-        if (currentTier === selectedTier) {
-            newLastCooked = initialMeal.lastCooked;
-        } else {
-            if (selectedTier === 'high') newLastCooked = Date.now();
-            if (selectedTier === 'medium') newLastCooked = Date.now() - (21 * DAY_MS);
-            if (selectedTier === 'low') newLastCooked = 0;
-        }
-    } else {
-        if (selectedTier === 'medium') newLastCooked = Date.now() - (21 * DAY_MS);
-        if (selectedTier === 'low') newLastCooked = 0; // Never cooked
-    }
-
     const mealToSave: Meal = {
       id: initialMeal ? initialMeal.id : Date.now().toString(),
       title: title,
-      lastCooked: newLastCooked,
+      tier: selectedTier,
+      lastCooked: initialMeal?.lastCooked || Date.now(),
       image: customImage || (initialMeal?.image || determineImage(title)),
       effort: effort,
       protein: determineProtein(title),
@@ -288,66 +273,112 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={handleClose} />
-      
-      <div className="w-full max-w-2xl bg-white rounded-t-3xl sm:rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto shadow-2xl transform transition-transform animate-in slide-in-from-bottom duration-300">
+    <AnimatePresence>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center"
+      >
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={handleClose}
+        />
         
-        <div className="flex-none p-6 pb-2 border-b border-gray-100 bg-white rounded-t-3xl sm:rounded-t-2xl">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">{initialMeal ? 'Edit Meal' : 'Add Meal'}</h2>
-            <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-full">
-              <X className="w-6 h-6 text-gray-500" />
-            </button>
-          </div>
+        <motion.div 
+          initial={{ y: '100%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: '100%', opacity: 0 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          className="w-full max-w-2xl bg-surface rounded-t-3xl sm:rounded-2xl flex flex-col max-h-[90vh] shadow-2xl relative z-10"
+        >
           
-          <div className="flex space-x-4">
-            <button 
-                onClick={() => setActiveTab('quick')}
-                className={`pb-2 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'quick' ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-            >
-                Meal Details
-            </button>
-            <button 
-                onClick={() => setActiveTab('magic')}
-                className={`pb-2 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1 ${activeTab === 'magic' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-            >
-                <Sparkles size={14} />
-                Magic Import
-            </button>
-          </div>
-        </div>
-
-        {loading && (
-             <div className="absolute inset-0 z-50 bg-white/80 flex flex-col items-center justify-center backdrop-blur-sm rounded-t-3xl sm:rounded-2xl">
-                <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-3" />
-                <p className="text-brand-900 font-medium animate-pulse">{loadingMessage}</p>
-             </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-none p-6 pb-2 border-b border-border bg-surface rounded-t-3xl sm:rounded-t-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-display font-bold text-primary">{initialMeal ? 'Edit Meal' : 'Add Meal'}</h2>
+              <motion.button 
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleClose} 
+                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full"
+              >
+                <X className="w-6 h-6 text-secondary" />
+              </motion.button>
+            </div>
             
-            {activeTab === 'magic' ? (
-                <div className="space-y-6">
+            <div className="flex space-x-4">
+              <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab('quick')}
+                  className={`pb-2 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'quick' ? 'border-primary-600 text-primary-600' : 'border-transparent text-secondary hover:text-primary'}`}
+              >
+                  Meal Details
+              </motion.button>
+              <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab('magic')}
+                  className={`pb-2 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1 ${activeTab === 'magic' ? 'border-primary-500 text-primary-600' : 'border-transparent text-secondary hover:text-primary'}`}
+              >
+                  <Sparkles size={14} />
+                  Magic Import
+              </motion.button>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {loading && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 bg-surface/80 flex flex-col items-center justify-center backdrop-blur-sm rounded-t-3xl sm:rounded-2xl"
+              >
+                <Loader2 className="w-10 h-10 text-primary-500 animate-spin mb-3" />
+                <p className="text-primary font-medium animate-pulse">{loadingMessage}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              
+              {activeTab === 'magic' ? (
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
                      {/* Thermomix Mode Toggle */}
-                     <div 
+                     <motion.div 
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
                         onClick={() => setUseThermomix(!useThermomix)}
-                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${useThermomix ? 'bg-green-50 border-green-500' : 'bg-gray-50 border-gray-200 opacity-60'}`}
+                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${useThermomix ? 'bg-secondary-50 dark:bg-secondary-950/50 border-secondary-500' : 'bg-neutral-50 dark:bg-neutral-900 border-border opacity-60'}`}
                      >
-                        <div className={`p-2 rounded-lg ${useThermomix ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        <div className={`p-2 rounded-lg ${useThermomix ? 'bg-secondary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-secondary'}`}>
                             <Zap size={20} />
                         </div>
                         <div className="flex-1">
-                            <h3 className={`font-bold text-sm ${useThermomix ? 'text-green-800' : 'text-gray-600'}`}>Robot Mode (Thermomix)</h3>
+                            <h3 className={`font-bold text-sm ${useThermomix ? 'text-secondary-800 dark:text-secondary-200' : 'text-secondary'}`}>Robot Mode (Thermomix)</h3>
                             <p className="text-[10px] uppercase tracking-wider font-bold opacity-60">AI will adapt recipe for kitchen machines</p>
                         </div>
-                        <div className={`w-10 h-6 rounded-full relative transition-colors ${useThermomix ? 'bg-green-500' : 'bg-gray-300'}`}>
+                        <div className={`w-10 h-6 rounded-full relative transition-colors ${useThermomix ? 'bg-secondary-500' : 'bg-neutral-300 dark:bg-neutral-700'}`}>
                             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${useThermomix ? 'left-5' : 'left-1'}`} />
                         </div>
-                     </div>
+                     </motion.div>
 
-                     <div className="bg-brand-50 p-5 rounded-xl border border-brand-100">
-                        <div className="flex items-center gap-2 mb-3 text-brand-900 font-bold">
+                     <motion.div 
+                       initial={{ opacity: 0, y: 10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={{ delay: 0.1 }}
+                       className="bg-primary-50 dark:bg-primary-950/50 p-5 rounded-xl border border-primary-200 dark:border-primary-800"
+                     >
+                        <div className="flex items-center gap-2 mb-3 text-primary-900 dark:text-primary-100 font-bold">
                             <LinkIcon size={18} />
                             <span>Paste a Recipe Link</span>
                         </div>
@@ -357,31 +388,38 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
                                 placeholder="https://..." 
                                 value={sourceUrl}
                                 onChange={(e) => setSourceUrl(e.target.value)}
-                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                className="input flex-1"
                             />
-                            <button 
+                            <motion.button 
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={handleUrlImport}
                                 disabled={!sourceUrl}
-                                className="bg-brand-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                                className="btn-primary"
                             >
                                 Import
-                            </button>
+                            </motion.button>
                         </div>
-                     </div>
+                     </motion.div>
 
                      <div className="flex items-center gap-4">
-                        <div className="h-px bg-gray-200 flex-1"></div>
-                        <span className="text-gray-400 text-sm font-medium">OR</span>
-                        <div className="h-px bg-gray-200 flex-1"></div>
+                        <div className="h-px bg-border flex-1"></div>
+                        <span className="text-secondary text-sm font-medium">OR</span>
+                        <div className="h-px bg-border flex-1"></div>
                      </div>
 
-                     <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                        <div className="flex items-center gap-2 mb-3 text-gray-800 font-bold">
+                     <motion.div 
+                       initial={{ opacity: 0, y: 10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={{ delay: 0.2 }}
+                       className="bg-neutral-50 dark:bg-neutral-900 p-5 rounded-xl border border-border"
+                     >
+                        <div className="flex items-center gap-2 mb-3 text-primary font-bold">
                             <Camera size={18} />
                             <span>Scan Recipe Book</span>
                         </div>
-                        <p className="text-sm text-gray-500 mb-2">Take a photo of a cookbook page. We'll extract text and adapt steps.</p>
-                        <p className="text-xs text-orange-600 bg-orange-50 p-2 rounded mb-4 font-medium">Note: Images are processed to extract text but not stored. Please keep a copy of the original.</p>
+                        <p className="text-sm text-secondary mb-2">Take a photo of a cookbook page. We'll extract text and adapt steps.</p>
+                        <p className="text-xs text-accent-600 dark:text-accent-400 bg-accent-50 dark:bg-accent-950/50 p-2 rounded mb-4 font-medium">Note: Images are processed to extract text but not stored. Please keep a copy of the original.</p>
                         <input 
                             type="file" 
                             accept="image/*" 
@@ -389,23 +427,30 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
                             onChange={handleRecipeScan}
                             className="hidden" 
                         />
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => scanFileInputRef.current?.click()}
-                            className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2"
+                            className="w-full bg-surface border border-border text-primary py-3 rounded-lg font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-center gap-2 transition-colors"
                         >
                             <Upload size={18} />
                             Scan & Adapt
-                        </button>
-                     </div>
+                        </motion.button>
+                     </motion.div>
 
                      <div className="flex items-center gap-4">
-                        <div className="h-px bg-gray-200 flex-1"></div>
-                        <span className="text-gray-400 text-sm font-medium">OR</span>
-                        <div className="h-px bg-gray-200 flex-1"></div>
+                        <div className="h-px bg-border flex-1"></div>
+                        <span className="text-secondary text-sm font-medium">OR</span>
+                        <div className="h-px bg-border flex-1"></div>
                      </div>
 
-                     <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                        <div className="flex items-center gap-2 mb-3 text-gray-800 font-bold">
+                     <motion.div 
+                       initial={{ opacity: 0, y: 10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={{ delay: 0.3 }}
+                       className="bg-neutral-50 dark:bg-neutral-900 p-5 rounded-xl border border-border"
+                     >
+                        <div className="flex items-center gap-2 mb-3 text-primary font-bold">
                             <ChefHat size={18} />
                             <span>Generate from Title</span>
                         </div>
@@ -415,29 +460,38 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
                                 placeholder="e.g. Grandma's Apple Pie" 
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                className="input"
                             />
                             <textarea 
                                 placeholder="Optional details (e.g. gluten free, extra spicy, serves 4...)"
                                 value={magicDescription}
                                 onChange={(e) => setMagicDescription(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm h-20 resize-none"
+                                className="input text-sm h-20 resize-none"
                             />
-                            <button 
+                            <motion.button 
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={handleGenerateFromTitle}
                                 disabled={!title}
-                                className="w-full bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50"
+                                className="w-full bg-primary-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
                             >
                                 Create Recipe
-                            </button>
+                            </motion.button>
                         </div>
-                     </div>
-                </div>
-            ) : (
-                <form id="mealForm" onSubmit={handleSubmit} className="space-y-5">
+                     </motion.div>
+                </motion.div>
+              ) : (
+                <motion.form 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  id="mealForm" 
+                  onSubmit={handleSubmit} 
+                  className="space-y-5"
+                >
                     {/* AI Edit Section */}
-                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-6">
-                        <label className="block text-sm font-bold text-purple-900 mb-2 flex items-center gap-2">
+                    <div className="bg-purple-50 dark:bg-purple-950/50 p-4 rounded-xl border border-purple-200 dark:border-purple-800 mb-6">
+                        <label className="block text-sm font-bold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
                             <Sparkles size={16} className="text-purple-600"/>
                             Edit with AI
                         </label>
@@ -447,136 +501,157 @@ const AddMealModal: React.FC<AddMealModalProps> = ({ isOpen, onClose, onSave, in
                                 placeholder="e.g. Make it vegan, double ingredients..."
                                 value={aiInstruction}
                                 onChange={(e) => setAiInstruction(e.target.value)}
-                                className="flex-1 px-3 py-2 rounded-lg border border-purple-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                                className="input flex-1 text-sm"
                                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAIEdit(); } }}
                             />
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 type="button"
                                 onClick={handleAIEdit}
                                 disabled={!aiInstruction.trim()}
                                 className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
                             >
                                 Apply
-                            </button>
+                            </motion.button>
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                        <label className="block text-sm font-medium text-primary mb-1">Title</label>
                         <input
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full text-lg px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900"
+                            className="input text-lg"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Current Status (Rotation Tier)</label>
+                        <label className="block text-sm font-medium text-primary mb-2">Category</label>
                         <div className="grid grid-cols-3 gap-2">
-                            {(['high', 'medium', 'low'] as Tier[]).map(t => (
-                                <button
+                            {(['favorites', 'regulars', 'occasional'] as Tier[]).map(t => (
+                                <motion.button
                                     key={t}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     type="button"
                                     onClick={() => setSelectedTier(t)}
-                                    className={`p-2 rounded-lg text-xs sm:text-sm font-medium border transition-all ${selectedTier === t ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                                    className={`p-2 rounded-lg text-xs sm:text-sm font-medium border transition-all ${selectedTier === t ? 'bg-primary-600 text-white border-primary-600' : 'bg-surface text-secondary border-border hover:bg-neutral-50 dark:hover:bg-neutral-800'}`}
                                 >
-                                    {t === 'high' ? 'Heavy Hitter' : t === 'medium' ? 'The Bench' : 'The Archive'}
-                                </button>
+                                    {TIER_CONFIG[t].label}
+                                </motion.button>
                             ))}
                         </div>
+                        <p className="text-xs text-secondary mt-2">
+                            {TIER_CONFIG[selectedTier].description}
+                        </p>
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Presentation Photo</label>
+                        <label className="block text-sm font-medium text-primary mb-1">Presentation Photo</label>
                         <div className="flex items-center gap-4">
-                            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 relative flex items-center justify-center">
+                            <div className="w-20 h-20 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-border relative flex items-center justify-center">
                                 {customImage || (title && determineImage(title)) ? (
-                                    <img src={customImage || determineImage(title)} className="w-full h-full object-cover" />
+                                    <img src={customImage || determineImage(title)} className="w-full h-full object-cover" alt="Meal" />
                                 ) : (
-                                    <Camera size={24} className="text-gray-300" />
+                                    <Camera size={24} className="text-secondary" />
                                 )}
                             </div>
-                            <button 
+                            <motion.button 
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 type="button"
                                 onClick={() => mainFileInputRef.current?.click()}
-                                className="text-sm font-medium text-brand-600 hover:text-brand-800 flex items-center gap-1"
+                                className="text-sm font-medium text-primary-600 hover:text-primary-800 dark:hover:text-primary-400 flex items-center gap-1"
                             >
                                 <Upload size={14} /> Change Main Photo
-                            </button>
+                            </motion.button>
                             <input type="file" accept="image/*" ref={mainFileInputRef} onChange={handleMainPhotoUpload} className="hidden" />
                         </div>
                     </div>
 
                     <div>
-                         <label className="block text-sm font-medium text-gray-700 mb-1">Ingredients</label>
+                         <label className="block text-sm font-medium text-primary mb-1">Ingredients</label>
                          <textarea 
                             value={ingredients}
                             onChange={(e) => setIngredients(e.target.value)}
-                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm text-gray-900"
+                            className="input"
                             rows={4}
                          />
                     </div>
 
                     <div className="space-y-4">
                         <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-1">Standard Method</label>
+                             <label className="block text-sm font-medium text-primary mb-1">Standard Method</label>
                              <textarea 
                                 value={method}
                                 onChange={(e) => setMethod(e.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm text-gray-900"
+                                className="input"
                                 rows={4}
                              />
                         </div>
                         <div>
                              <div className="flex justify-between items-end mb-1">
-                                <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <Zap size={14} className="text-green-600" />
+                                <label className="block text-sm font-medium text-primary flex items-center gap-2">
+                                    <Zap size={14} className="text-secondary-600" />
                                     Thermomix Method (Optional)
                                 </label>
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     type="button"
                                     onClick={handleGenerateThermomix}
-                                    className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200 hover:bg-green-100 flex items-center gap-1 transition-colors"
+                                    className="text-xs bg-secondary-50 dark:bg-secondary-950/50 text-secondary-700 dark:text-secondary-300 px-2 py-1 rounded border border-secondary-200 dark:border-secondary-800 hover:bg-secondary-100 dark:hover:bg-secondary-900/50 flex items-center gap-1 transition-colors"
                                 >
                                     <Sparkles size={10} /> Generate with AI
-                                </button>
+                                </motion.button>
                              </div>
                              <textarea 
                                 value={thermomixMethod}
                                 onChange={(e) => setThermomixMethod(e.target.value)}
-                                className="w-full px-3 py-2 bg-green-50/30 border border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm text-gray-900"
+                                className="input bg-secondary-50/30 dark:bg-secondary-950/30 border-secondary-200 dark:border-secondary-800 focus:ring-secondary-500 focus:border-secondary-500"
                                 rows={4}
                                 placeholder="AI generated Thermomix steps..."
                              />
                         </div>
                     </div>
-                </form>
-            )}
-        </div>
+                </motion.form>
+              )}
+          </div>
 
-        <div className="flex-none p-6 pt-4 border-t border-gray-100 bg-gray-50 rounded-b-3xl sm:rounded-b-2xl flex gap-3">
-          {activeTab === 'quick' ? (
-             <>
-                 {initialMeal && onDelete && (
-                    <button
+          <div className="flex-none p-6 pt-4 border-t border-border bg-neutral-50 dark:bg-neutral-900 rounded-b-3xl sm:rounded-b-2xl flex gap-3">
+            {activeTab === 'quick' ? (
+               <>
+                  {initialMeal && onDelete && (
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         type="button"
                         onClick={() => { if(window.confirm('Delete this meal?')) { onDelete(initialMeal.id); handleClose(); } }}
-                        className="bg-red-50 text-red-600 p-3 rounded-xl hover:bg-red-100"
+                        className="bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 p-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50"
                     >
                         <Trash2 size={24} />
-                    </button>
-                 )}
-                 <button type="submit" form="mealForm" disabled={!title.trim()} className="flex-1 bg-black text-white py-3 rounded-xl font-bold text-lg disabled:opacity-50">
+                    </motion.button>
+                  )}
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit" 
+                    form="mealForm" 
+                    disabled={!title.trim()} 
+                    className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-bold text-lg disabled:opacity-50 hover:bg-primary-700 transition-colors"
+                  >
                     {initialMeal ? 'Update' : 'Save'}
-                </button>
-             </>
-          ) : (
-            <p className="w-full text-center text-xs text-gray-400">Select Thermomix mode above if required before importing.</p>
-          )}
-        </div>
-      </div>
-    </div>
+                  </motion.button>
+               </>
+            ) : (
+              <p className="w-full text-center text-xs text-secondary">Select Thermomix mode above if required before importing.</p>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

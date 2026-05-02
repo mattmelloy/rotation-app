@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Meal, DaySlot } from '../types';
-import { X, ShoppingBag, Trash2, UserCircle, Sparkles } from 'lucide-react';
+import { X, ShoppingBag, Trash2, UserCircle, Sparkles, Moon, Sun, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface WeekTrayProps {
   slots: DaySlot[];
@@ -12,7 +14,118 @@ interface WeekTrayProps {
   onUserClick: () => void;
   onAIChatToggle: () => void;
   onDayClick: (dayIndex: number) => void;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
+  onLogoClick?: () => void;
 }
+
+// Droppable day circle component - Minimal Apple-like design
+const DroppableDayCircle: React.FC<{
+  slot: DaySlot;
+  dayIndex: number;
+  dayMeals: Meal[];
+  isShopMode: boolean;
+  isExpanded: boolean;
+  onDayClick: (index: number) => void;
+  onRemove: (dayIndex: number, mealId?: string) => void;
+}> = ({ slot, dayIndex, dayMeals, isShopMode, isExpanded, onDayClick, onRemove }) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `day-${dayIndex}`,
+    data: { dayIndex },
+  });
+
+  const hasMeals = dayMeals.length > 0;
+  const primaryMeal = dayMeals[0];
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+        flex flex-col items-center cursor-pointer transition-all duration-200
+        ${isExpanded ? 'flex-1' : ''}
+      `}
+      onClick={() => onDayClick(dayIndex)}
+    >
+      {/* Day Label */}
+      <span className="text-[10px] font-semibold text-secondary mb-1">{slot.label}</span>
+      
+      {/* Day Circle - Minimal indicator */}
+      <div 
+        className={`
+          relative w-8 h-8 rounded-full flex items-center justify-center
+          transition-all duration-200 ease-out
+          ${isOver ? 'ring-2 ring-primary-500 ring-offset-2 scale-110' : ''}
+          ${hasMeals 
+            ? 'bg-primary-500 text-white shadow-sm' 
+            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500'
+          }
+        `}
+      >
+        {hasMeals ? (
+          <span className="text-xs font-bold">{dayMeals.length}</span>
+        ) : (
+          <div className="w-1.5 h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+        )}
+      </div>
+
+      {/* Expanded View - Show meal info */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mt-2 text-center w-full"
+          >
+            {hasMeals ? (
+              <div className="space-y-1">
+                {/* Stacked thumbnails */}
+                <div className="flex justify-center -space-x-1">
+                  {dayMeals.slice(0, 3).map((meal, idx) => (
+                    <div
+                      key={meal.id}
+                      className="w-6 h-6 rounded-full border border-white dark:border-neutral-800 overflow-hidden bg-surface"
+                      style={{ zIndex: 3 - idx }}
+                    >
+                      <img
+                        src={meal.image}
+                        alt={meal.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[9px] text-primary font-medium line-clamp-1 px-1">
+                  {primaryMeal?.title}
+                </p>
+                {dayMeals.length > 1 && (
+                  <p className="text-[8px] text-secondary">+{dayMeals.length - 1} more</p>
+                )}
+                {/* Remove button */}
+                {!isShopMode && (
+                  <button
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      onRemove(dayIndex, primaryMeal?.id); 
+                    }}
+                    className="text-[8px] text-red-500 hover:text-red-600"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="text-[9px] text-neutral-400 dark:text-neutral-500">
+                Empty
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const WeekTray: React.FC<WeekTrayProps> = ({ 
   slots, 
@@ -23,151 +136,173 @@ const WeekTray: React.FC<WeekTrayProps> = ({
   onClear,
   onUserClick,
   onAIChatToggle,
-  onDayClick
+  onDayClick,
+  isDark = false,
+  onToggleTheme,
+  onLogoClick
 }) => {
-  // Calculate fill percentage - considering a day "filled" if it has at least one meal
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Calculate fill percentage
   const filledDays = slots.filter(s => s.mealIds && s.mealIds.length > 0).length;
-  const progress = (filledDays / 7) * 100;
+  const totalMeals = slots.reduce((acc, s) => acc + (s.mealIds?.length || 0), 0);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm pt-3 pb-2 px-1 transition-all duration-300">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-2 px-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Active Week</h2>
-          </div>
-          
-          <div className="flex items-center gap-2">
+    <motion.div 
+      initial={{ y: -60, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className={`
+        fixed top-0 left-0 right-0 z-50 
+        bg-surface/95 backdrop-blur-xl 
+        border-b border-border 
+        transition-all duration-300 ease-out
+        ${isExpanded ? 'h-[120px]' : 'h-[60px]'}
+      `}
+    >
+      {/* Full-width container for logo alignment with LandingPage */}
+      <div className="max-w-7xl mx-auto h-full flex flex-col justify-center px-4 sm:px-6 lg:px-8">
+        {/* Main Row - Always visible */}
+        <div className="flex items-center justify-between">
+          {/* Left: Branding Logo - positioned to match LandingPage */}
+          {onLogoClick && (
             <button 
-                onClick={onAIChatToggle}
-                className="group relative p-[2px] rounded-full bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 hover:scale-110 transition-transform shadow-sm mr-1"
-                title="Chat with AI Chef"
+              onClick={onLogoClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0"
             >
-                <div className="bg-white p-1 rounded-full group-hover:bg-white/90 transition-colors">
-                    <Sparkles size={16} className="text-purple-600" />
-                </div>
-            </button>
-
-            <button 
-                onClick={onClear}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
-                title="Clear week and reset votes"
-            >
-                <Trash2 size={14} />
-                <span className="hidden sm:inline">Clear</span>
-            </button>
-
-            <button 
-                onClick={onShopToggle}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                isShopMode 
-                    ? 'bg-brand-900 text-white' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-            >
-                <ShoppingBag size={14} />
-                {isShopMode ? 'Plan' : 'Shop'}
-            </button>
-
-            <button 
-                onClick={onUserClick}
-                className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                title="User Settings"
-            >
-                <UserCircle size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
-          {slots.map((slot, dayIndex) => {
-            const dayMeals = slot.mealIds
-              .map(id => meals.find(m => m.id === id))
-              .filter((m): m is Meal => !!m);
-
-            const hasMeals = dayMeals.length > 0;
-            const primaryMeal = dayMeals[0];
-            const extraCount = dayMeals.length - 1;
-            
-            return (
-              <div 
-                key={dayIndex} 
-                className="flex flex-col items-center min-w-0 group/day relative cursor-pointer active:scale-95 transition-transform"
-                onClick={() => onDayClick(dayIndex)}
+              <motion.div 
+                whileHover={{ rotate: 15 }}
+                className="w-8 h-8 bg-primary-100 dark:bg-primary-900/50 rounded-lg flex items-center justify-center text-lg"
               >
-                <span className="text-[10px] font-bold text-gray-400 mb-0.5">{slot.label}</span>
-                
-                {/* Image Container */}
-                <div className="relative h-9 w-9 sm:h-10 sm:w-10 mb-1 flex-shrink-0">
-                  {hasMeals ? (
-                    <>
-                      {/* Stacked effect for multiple meals */}
-                      {dayMeals.slice(0, 3).map((meal, idx) => (
-                        <div 
-                            key={meal.id}
-                            className="absolute rounded-full border border-white shadow-sm overflow-hidden bg-white transition-all hover:z-10 hover:scale-110"
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                top: idx * 2,
-                                left: idx * 2,
-                                zIndex: 3 - idx,
-                                transform: extraCount > 0 ? `scale(${1 - (idx * 0.1)})` : 'none'
-                            }}
-                        >
-                           <img 
-                            src={meal.image} 
-                            alt={meal.title} 
-                            className="w-full h-full object-cover"
-                          />
-                           {!isShopMode && (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); onRemove(dayIndex, meal.id); }}
-                              className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                              title="Remove"
-                            >
-                              <X size={12} className="text-white" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <div className="w-full h-full rounded-full border border-dashed border-gray-300 flex items-center justify-center bg-gray-50/50">
-                      <div className="w-1 h-1 rounded-full bg-gray-300"></div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Meal Title / Count */}
-                <div className="h-6 w-full px-0.5 flex items-start justify-center">
-                    {hasMeals ? (
-                        <div className="text-center">
-                            <p className="text-[8px] sm:text-[9px] leading-[1.1] text-gray-700 font-medium line-clamp-2 w-full break-words overflow-hidden">
-                                {primaryMeal.title}
-                            </p>
-                            {extraCount > 0 && (
-                                <p className="text-[8px] text-gray-400 font-bold">+{extraCount} more</p>
-                            )}
-                        </div>
-                    ) : (
-                        <span className="text-[10px] text-gray-200 select-none">-</span>
-                    )}
-                </div>
+                🍳
+              </motion.div>
+              <span className="hidden sm:block font-display font-bold text-xl text-primary">The Rotation</span>
+            </button>
+          )}
+          
+          {/* Center: Day Circles */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {slots.map((slot, dayIndex) => {
+              const dayMeals = slot.mealIds
+                .map(id => meals.find(m => m.id === id))
+                .filter((m): m is Meal => !!m);
+
+              return (
+                <DroppableDayCircle
+                  key={dayIndex}
+                  slot={slot}
+                  dayIndex={dayIndex}
+                  dayMeals={dayMeals}
+                  isShopMode={isShopMode}
+                  isExpanded={isExpanded}
+                  onDayClick={onDayClick}
+                  onRemove={onRemove}
+                />
+              );
+            })}
+          </div>
+
+          {/* Right: Status & Actions */}
+          <div className="flex items-center gap-2">
+            {/* Week Status */}
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-secondary">
+              <span className="font-medium">{filledDays}/7</span>
+              <span className="text-neutral-400">filled</span>
+            </div>
+
+            {/* Expand/Collapse Toggle */}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-secondary hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+              title={isExpanded ? 'Collapse' : 'Expand'}
+            >
+              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+
+            {/* Add Meal Button */}
+            <button
+              onClick={onAIChatToggle}
+              className="p-1.5 rounded-full bg-primary-500 text-white hover:bg-primary-600 transition-colors"
+              title="Add Meal"
+            >
+              <Plus size={14} />
+            </button>
+
+            {/* Theme Toggle */}
+            {onToggleTheme && (
+              <button
+                onClick={onToggleTheme}
+                className="p-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                title={isDark ? 'Light Mode' : 'Dark Mode'}
+              >
+                {isDark ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+            )}
+
+            {/* Shop/Plan Toggle */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={onShopToggle}
+              className={`
+                flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors
+                ${isShopMode 
+                  ? 'bg-primary-500 text-white' 
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-secondary hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                }
+              `}
+            >
+              <ShoppingBag size={12} />
+              <span className="hidden sm:inline">{isShopMode ? 'Plan' : 'Shop'}</span>
+            </motion.button>
+
+            {/* User Settings */}
+            <button 
+              onClick={onUserClick}
+              className="p-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-secondary hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+              title="Settings"
+            >
+              <UserCircle size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Expanded Actions Row */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center justify-center gap-3 mt-2 pt-2 border-t border-border"
+            >
+              {/* AI Chef Button */}
+              <button
+                onClick={onAIChatToggle}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-medium"
+              >
+                <Sparkles size={12} />
+                AI Chef
+              </button>
+
+              {/* Clear Week */}
+              <button 
+                onClick={onClear}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors"
+              >
+                <Trash2 size={12} />
+                Clear Week
+              </button>
+
+              {/* Total meals indicator */}
+              <div className="text-xs text-secondary">
+                {totalMeals} meal{totalMeals !== 1 ? 's' : ''} planned
               </div>
-            );
-          })}
-        </div>
-        
-        {/* Progress Bar */}
-        <div className="w-full h-0.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
-          <div 
-            className="h-full bg-brand-500 transition-all duration-500 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

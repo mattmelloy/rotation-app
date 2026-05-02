@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from '@google/genai';
+import { aiRateLimiter } from '../_utils/rateLimit';
+import { validateRecipeInput, sanitizeString } from '../_utils/validation';
 
 const recipeSchema = {
   type: Type.OBJECT,
@@ -30,12 +32,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Rate limiting check
+  const rateCheck = aiRateLimiter(req, res);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({ 
+      error: 'Too many requests', 
+      message: 'Please wait a moment before generating more recipes.',
+      retryAfter: Math.ceil((rateCheck.resetTime - Date.now()) / 1000)
+    });
+  }
+
   try {
-    const { text, isUrl = false, includeThermomix = false, additionalDetails = '' } = req.body;
-    
-    if (!text) {
-      return res.status(400).json({ error: 'text is required' });
+    // Input validation and sanitization
+    const validation = validateRecipeInput(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
     }
+    
+    const { text, isUrl, includeThermomix } = validation.sanitizedValue;
+    const additionalDetails = sanitizeString(req.body.additionalDetails || '', 500);
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {

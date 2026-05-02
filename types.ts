@@ -1,11 +1,12 @@
 export type Effort = 'easy' | 'medium' | 'hard';
-export type Tier = 'high' | 'medium' | 'low';
+export type Tier = 'favorites' | 'regulars' | 'occasional';
 export type SourceType = 'url' | 'image' | 'ai' | 'manual';
 
 export interface Meal {
   id: string;
   title: string;
-  lastCooked: number; // Timestamp
+  tier?: Tier; // User-selected tier for categorization (optional - falls back to lastCooked-based calculation)
+  lastCooked: number; // Timestamp - kept for display purposes
   image: string; // The presentation image (food)
   effort: Effort;
   protein: string;
