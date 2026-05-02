@@ -136,4 +136,42 @@ router.get('/me', authenticateToken, async (req: Request, res: Response) => {
   res.json({ user: { id: userId, email } });
 });
 
+// POST /api/auth/change-password
+router.post('/change-password', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { userId } = (req as any).user;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const db = sql();
+
+    // Fetch current password hash
+    const result = await db`SELECT password_hash FROM users WHERE id = ${userId}`;
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const valid = await bcrypt.compare(currentPassword, result[0].password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash and save new password
+    const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await db`UPDATE users SET password_hash = ${newHash}, updated_at = NOW() WHERE id = ${userId}`;
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Change password error:', err);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 export default router;

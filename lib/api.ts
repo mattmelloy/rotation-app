@@ -96,6 +96,13 @@ export async function getMe() {
   return apiFetch<{ user: AuthUser }>('/api/auth/me');
 }
 
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return apiFetch<{ success: boolean }>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 export function signOut() {
   clearToken();
 }

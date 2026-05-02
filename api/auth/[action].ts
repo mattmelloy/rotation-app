@@ -103,6 +103,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
 
+    } else if (action === 'change-password' && req.method === 'POST') {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.split(' ')[1];
+      if (!token) return res.status(401).json({ error: 'No token provided' });
+
+      let userId: string;
+      try {
+        const payload = jwt.verify(token, getJwtSecret()) as { userId: string };
+        userId = payload.userId;
+      } catch {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Current password and new password are required' });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      }
+
+      const result = await db`SELECT password_hash FROM users WHERE id = ${userId}`;
+      if (result.length === 0) return res.status(404).json({ error: 'User not found' });
+
+      const valid = await bcrypt.compare(currentPassword, result[0].password_hash);
+      if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+      const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      await db`UPDATE users SET password_hash = ${newHash}, updated_at = NOW() WHERE id = ${userId}`;
+
+      return res.json({ success: true });
+
     } else {
       return res.status(404).json({ error: 'Not found' });
     }

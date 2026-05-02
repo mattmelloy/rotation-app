@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Search, X, LogOut, Trash2, UserCircle, Database, ChevronRight, Loader2 } from 'lucide-react';
+import { Plus, Users, Search, X, LogOut, Trash2, UserCircle, Database, ChevronRight, Loader2, Lock } from 'lucide-react';
 import { Meal, ViewMode, DAYS, Tier } from './types';
 import { getMealTier, TIER_CONFIG } from './utils';
-import { signOut as apiSignOut } from './lib/api';
+import { signOut as apiSignOut, changePassword } from './lib/api';
 
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -77,6 +77,9 @@ function App() {
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
   const [selectingDayForMeal, setSelectingDayForMeal] = useState<Meal | null>(null);
@@ -837,17 +840,90 @@ function App() {
                       </button>
 
                        {user && (
-                          <button 
-                              onClick={handleLogout}
-                              className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl flex items-center justify-between group transition-colors"
-                          >
-                              <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400">
-                                      <LogOut size={16} />
-                                  </div>
-                                  <span className="text-sm font-medium text-primary group-hover:text-red-600 dark:group-hover:text-red-400">Sign Out</span>
+                          <>
+                            {/* Change Password */}
+                            {isChangingPassword ? (
+                              <div className="mx-2 mb-2 p-4 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-border space-y-3">
+                                <p className="text-xs font-bold text-primary uppercase tracking-wider">Change Password</p>
+                                <input
+                                  type="password"
+                                  placeholder="Current password"
+                                  value={pwForm.current}
+                                  onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                                  className="w-full px-3 py-2 text-sm bg-white dark:bg-neutral-800 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                                <input
+                                  type="password"
+                                  placeholder="New password (min. 6 chars)"
+                                  value={pwForm.next}
+                                  onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
+                                  className="w-full px-3 py-2 text-sm bg-white dark:bg-neutral-800 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                                <input
+                                  type="password"
+                                  placeholder="Confirm new password"
+                                  value={pwForm.confirm}
+                                  onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                                  className="w-full px-3 py-2 text-sm bg-white dark:bg-neutral-800 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      if (pwForm.next !== pwForm.confirm) {
+                                        showToast('New passwords do not match', 'error'); return;
+                                      }
+                                      if (pwForm.next.length < 6) {
+                                        showToast('Password must be at least 6 characters', 'error'); return;
+                                      }
+                                      setPwLoading(true);
+                                      const { error } = await changePassword(pwForm.current, pwForm.next);
+                                      setPwLoading(false);
+                                      if (error) { showToast(error, 'error'); return; }
+                                      showToast('Password changed successfully!', 'success');
+                                      setIsChangingPassword(false);
+                                      setPwForm({ current: '', next: '', confirm: '' });
+                                    }}
+                                    disabled={pwLoading}
+                                    className="flex-1 bg-primary-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-primary-700 transition-colors disabled:opacity-50"
+                                  >
+                                    {pwLoading ? 'Saving…' : 'Save'}
+                                  </button>
+                                  <button
+                                    onClick={() => { setIsChangingPassword(false); setPwForm({ current: '', next: '', confirm: '' }); }}
+                                    className="flex-1 border border-border text-secondary py-2 rounded-lg text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
                               </div>
-                          </button>
+                            ) : (
+                              <button
+                                onClick={() => setIsChangingPassword(true)}
+                                className="w-full text-left px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-xl flex items-center justify-between group transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                    <Lock size={16} />
+                                  </div>
+                                  <span className="text-sm font-medium text-primary">Change Password</span>
+                                </div>
+                                <ChevronRight size={16} className="text-neutral-300 group-hover:text-neutral-500" />
+                              </button>
+                            )}
+
+                            {/* Sign Out */}
+                            <button 
+                                onClick={handleLogout}
+                                className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl flex items-center justify-between group transition-colors"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400">
+                                        <LogOut size={16} />
+                                    </div>
+                                    <span className="text-sm font-medium text-primary group-hover:text-red-600 dark:group-hover:text-red-400">Sign Out</span>
+                                </div>
+                            </button>
+                          </>
                        )}
                   </div>
                   
